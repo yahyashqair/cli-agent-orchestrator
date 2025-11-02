@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Agent Orchestrator Dashboard</title>
+    <link rel="stylesheet" href="/ui/static/styles.css">
+</head>
+<body>
+    <header>
+        <h1>CLI Agent Orchestrator</h1>
+        <p class="subtitle">Monitor and control tmux-backed agent sessions.</p>
+    </header>
+
+    <main>
+        <section class="panel" id="create-session-panel">
+            <h2>Create Session</h2>
+            <form id="create-session-form">
+                <div class="form-group">
+                    <label for="provider">Provider</label>
+                    <input type="text" id="provider" name="provider" value="q_cli" required>
+                </div>
+                <div class="form-group">
+                    <label for="agent-profile">Agent Profile</label>
+                    <input type="text" id="agent-profile" name="agentProfile" placeholder="developer" required>
+                </div>
+                <div class="form-group">
+                    <label for="session-name">Session Name (optional)</label>
+                    <input type="text" id="session-name" name="sessionName" placeholder="cao-team">
+                </div>
+                <button type="submit">Create Session</button>
+            </form>
+            <p id="create-session-feedback" class="feedback"></p>
+        </section>
+
+        <section class="panel" id="summary-panel">
+            <div class="panel-header">
+                <h2>Session Summary</h2>
+                <button id="refresh-summary">Refresh</button>
+            </div>
+            <div id="session-summary"></div>
+        </section>
+
+        <section class="panel" id="terminal-panel">
+            <div class="panel-header">
+                <h2>Terminal Details</h2>
+                <div id="terminal-actions">
+                    <button id="refresh-terminal" disabled>Refresh Output</button>
+                    <button id="fetch-full-output" disabled>Download Output</button>
+                    <button id="exit-terminal" disabled>Send Exit</button>
+                </div>
+            </div>
+            <div id="terminal-metadata">
+                <p>Select a terminal from the summary to view its details.</p>
+            </div>
+            <div id="terminal-output" class="terminal-output"></div>
+            <form id="terminal-input-form">
+                <label for="terminal-input">Send Input</label>
+                <div class="input-row">
+                    <input type="text" id="terminal-input" placeholder="Enter command" disabled>
+                    <button type="submit" id="terminal-send" disabled>Send</button>
+                </div>
+            </form>
+            <p id="terminal-feedback" class="feedback"></p>
+        </section>
+    </main>
+
+    <template id="terminal-template">
+        <article class="terminal-card" data-terminal-id="">
+            <header>
+                <h3></h3>
+                <span class="status"></span>
+            </header>
+            <dl>
+                <div><dt>Provider</dt><dd class="provider"></dd></div>
+                <div><dt>Agent Profile</dt><dd class="agent-profile"></dd></div>
+                <div><dt>Last Active</dt><dd class="last-active"></dd></div>
+                <div><dt>Last Message</dt><dd class="last-message"></dd></div>
+            </dl>
+            <button class="view-terminal">Open</button>
+        </article>
+    </template>
+
+    <template id="session-template">
+        <section class="session-card">
+            <header>
+                <h3></h3>
+                <span class="counts"></span>
+            </header>
+            <div class="terminals"></div>
+        </section>
+    </template>
+
+    <script src="/ui/static/app.js" type="module"></script>
+</body>
+</html>

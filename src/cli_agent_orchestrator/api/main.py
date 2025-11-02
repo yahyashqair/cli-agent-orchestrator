@@ -3,8 +3,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import List, Dict, Optional, Annotated
-from fastapi import FastAPI, HTTPException, status, Path
+from pathlib import Path
+from typing import List, Dict
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from watchdog.observers.polling import PollingObserver
@@ -14,13 +17,15 @@ from cli_agent_orchestrator.services import session_service, terminal_service, f
 from cli_agent_orchestrator.services.cleanup_service import cleanup_old_data
 from cli_agent_orchestrator.services.inbox_service import LogFileHandler
 from cli_agent_orchestrator.services.terminal_service import OutputMode
+from cli_agent_orchestrator.services.summary_service import build_summary
 from cli_agent_orchestrator.models.terminal import Terminal, TerminalId
 from cli_agent_orchestrator.constants import SERVER_VERSION, SERVER_HOST, SERVER_PORT, TERMINAL_LOG_DIR, INBOX_POLLING_INTERVAL
 from cli_agent_orchestrator.utils.logging import setup_logging
-from cli_agent_orchestrator.utils.terminal import generate_session_name
 from cli_agent_orchestrator.providers.manager import provider_manager
 
 logger = logging.getLogger(__name__)
+
+UI_STATIC_DIR = Path(__file__).resolve().parent.parent / "ui" / "static"
 
 
 async def flow_daemon():
@@ -93,6 +98,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+if UI_STATIC_DIR.exists():
+    app.mount("/ui/static", StaticFiles(directory=UI_STATIC_DIR), name="ui-static")
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/ui", response_class=HTMLResponse)
+async def serve_ui():
+    if not UI_STATIC_DIR.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UI assets not found")
+    return FileResponse(UI_STATIC_DIR / "index.html")
+
 
 @app.get("/health")
 async def health_check():
@@ -127,6 +143,14 @@ async def list_sessions() -> List[Dict]:
         return session_service.list_sessions()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to list sessions: {str(e)}")
+
+
+@app.get("/summary")
+async def session_summary() -> Dict:
+    try:
+        return build_summary()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to build summary: {str(e)}")
 
 
 @app.get("/sessions/{session_name}")
