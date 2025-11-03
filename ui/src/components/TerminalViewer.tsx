@@ -96,7 +96,6 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const { data: terminal } = useQuery({
     queryKey: ['terminal', terminalId],
     queryFn: () => api.getTerminal(terminalId),
-    refetchInterval: 2000,
   })
 
   const {
