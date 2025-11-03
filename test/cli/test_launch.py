@@ -31,7 +31,9 @@ def test_launch_uses_agent_profile_provider(monkeypatch):
     monkeypatch.setattr(
         launch_module.requests,
         "post",
-        lambda url, params: _capture_post(url, params, captured, "cao-session-codex", "codex-window"),
+        lambda url, params: _capture_post(
+            url, params, captured, "cao-session-codex", "codex-window"
+        ),
     )
 
     result = runner.invoke(launch_module.launch, ["--agents", "product_supervisor", "--headless"])
@@ -50,7 +52,9 @@ def test_launch_defaults_to_q_cli_when_profile_missing(monkeypatch):
     monkeypatch.setattr(
         launch_module.requests,
         "post",
-        lambda url, params: _capture_post(url, params, captured, "cao-session-default", "default-window"),
+        lambda url, params: _capture_post(
+            url, params, captured, "cao-session-default", "default-window"
+        ),
     )
 
     result = runner.invoke(launch_module.launch, ["--agents", "unknown", "--headless"])
@@ -72,4 +76,3 @@ def _raise_runtime():
     """Helper to raise RuntimeError for monkeypatch scenarios."""
 
     raise RuntimeError("profile missing")
-

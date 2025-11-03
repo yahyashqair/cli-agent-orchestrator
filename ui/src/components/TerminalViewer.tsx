@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check } from 'lucide-react'
@@ -6,9 +6,40 @@ import { api } from '../api/client'
 import Convert from 'ansi-to-html'
 import './TerminalViewer.css'
 
+const CLEARED_MESSAGE = '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
+const EMPTY_MESSAGE = 'No output yet...'
+
+const createAnsiConverter = () =>
+  new Convert({
+    fg: '#d4d4d4',
+    bg: '#1e1e1e',
+    newline: true,
+    escapeXML: true,
+    stream: false,
+  })
+
+const sanitizeControlSequences = (value: string) =>
+  value
+    // Strip OSC sequences (Operating System Command)
+    .replace(/\u001B\][^\u0007]*\u0007/g, '')
+    // Strip DCS (Device Control String) sequences: ESC P ... ESC \
+    .replace(/\u001BP.*?\u001B\\?/gs, '')
+    // Strip SOS/PM/APC sequences terminated by BEL
+    .replace(/\u001B[\^\_].*?\u0007/g, '')
+    // Remove CSI sequences that are not SGR (final byte not m)
+    .replace(/\u001B\[[0-9;?]*[A-Za-z]/g, (seq) => (seq.endsWith('m') ? seq : ''))
+    // Remove stray carriage returns without newline (cursor reposition artifacts)
+    .replace(/\r(?!\n)/g, '')
+
 interface TerminalViewerProps {
   terminalId: string
   onClose: () => void
+}
+
+type TerminalUpdateMessage = {
+  type: 'terminal_update'
+  terminal_id: string
+  event: 'init' | 'changed'
 }
 
 export default function TerminalViewer({ terminalId, onClose }: TerminalViewerProps) {
@@ -16,19 +47,49 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const [autoScroll, setAutoScroll] = useState(true)
   const [isCleared, setIsCleared] = useState(false)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [renderedHtml, setRenderedHtml] = useState('')
   const outputRef = useRef<HTMLPreElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const copyResetTimeoutRef = useRef<number | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const rawOutputRef = useRef<string>('')
   const queryClient = useQueryClient()
 
-  // Create ANSI to HTML converter
-  const convert = useMemo(() => new Convert({
-    fg: '#d4d4d4',
-    bg: '#1e1e1e',
-    newline: true,
-    escapeXML: true,
-    stream: false,
-  }), [])
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current)
+        copyResetTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    setCopyStatus('idle')
+    setIsCleared(false)
+    rawOutputRef.current = ''
+    setRenderedHtml('')
+  }, [terminalId])
+
+  const stripAnsi = useCallback((value: string) => value.replace(/\u001B\[[0-9;]*[A-Za-z]/g, ''), [])
+
+  const renderFullOutput = useCallback((raw: string) => {
+    const cleaned = sanitizeControlSequences(raw)
+
+    if (!cleaned) {
+      setRenderedHtml('')
+      return
+    }
+
+    try {
+      const converter = createAnsiConverter()
+      const html = converter.toHtml(cleaned)
+      setRenderedHtml(html)
+    } catch (error) {
+      console.error('Error converting ANSI output to HTML:', error)
+      setRenderedHtml(cleaned)
+    }
+  }, [])
 
   const { data: terminal } = useQuery({
     queryKey: ['terminal', terminalId],
@@ -36,17 +97,36 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     refetchInterval: 2000,
   })
 
-  const { data: outputData, refetch: refetchOutput } = useQuery({
+  const {
+    data: outputData,
+    refetch: refetchOutput,
+    isFetching: isFetchingOutput,
+  } = useQuery({
     queryKey: ['terminal-output', terminalId],
     queryFn: () => api.getOutput(terminalId, 'full'),
-    refetchInterval: 1000, // Refresh every second for real-time updates
+    enabled: Boolean(terminalId),
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
   })
+
+  useEffect(() => {
+    const output = outputData?.output ?? ''
+    rawOutputRef.current = output
+
+    if (!output) {
+      setRenderedHtml('')
+      return
+    }
+
+    setIsCleared(false)
+    renderFullOutput(output)
+  }, [outputData, renderFullOutput])
 
   const sendInputMutation = useMutation({
     mutationFn: (message: string) => api.sendInput(terminalId, message),
     onSuccess: () => {
       setInput('')
-      setTimeout(() => refetchOutput(), 500)
+      void refetchOutput()
     },
   })
 
@@ -66,36 +146,91 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   })
 
   useEffect(() => {
-    return () => {
-      if (copyResetTimeoutRef.current) {
-        window.clearTimeout(copyResetTimeoutRef.current)
-        copyResetTimeoutRef.current = null
+    if (!terminalId) return
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const websocket = new WebSocket(`${protocol}//${window.location.host}/ws`)
+    wsRef.current = websocket
+
+    websocket.onopen = () => {
+      websocket.send(
+        JSON.stringify({
+          action: 'subscribe_terminal',
+          terminal_id: terminalId,
+        }),
+      )
+      void refetchOutput()
+    }
+
+    websocket.onmessage = (event: MessageEvent<string>) => {
+      try {
+        const message = JSON.parse(event.data) as TerminalUpdateMessage
+        if (message.type === 'terminal_update' && message.terminal_id === terminalId) {
+          void refetchOutput()
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error)
       }
     }
-  }, [])
 
-  const stripAnsi = (value: string) => value.replace(/\u001B\[[0-9;]*[A-Za-z]/g, '')
-
-  // Convert ANSI output to HTML
-  const htmlOutput = useMemo(() => {
-    if (isCleared) return '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
-    if (!outputData?.output) return 'No output yet...'
-    try {
-      return convert.toHtml(outputData.output)
-    } catch (error) {
-      console.error('Error converting ANSI to HTML:', error)
-      return outputData.output
+    websocket.onerror = (event) => {
+      console.error('WebSocket error for terminal notifications:', event)
     }
-  }, [outputData?.output, convert, isCleared])
+
+    websocket.onclose = () => {
+      wsRef.current = null
+    }
+
+    return () => {
+      try {
+        if (websocket.readyState === WebSocket.OPEN) {
+          websocket.send(
+            JSON.stringify({
+              action: 'unsubscribe_terminal',
+              terminal_id: terminalId,
+            }),
+          )
+        }
+      } catch (error) {
+        console.error('Failed to send WebSocket unsubscribe:', error)
+      } finally {
+        websocket.close()
+      }
+    }
+  }, [terminalId, refetchOutput])
+
+  useEffect(() => {
+    if (autoScroll && !isCleared && outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight
+    }
+  }, [renderedHtml, autoScroll, isCleared])
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [terminalId])
+
+  useEffect(() => {
+    if (!sendInputMutation.isPending) {
+      inputRef.current?.focus()
+    }
+  }, [sendInputMutation.isPending])
+
+  const handleManualRefresh = async () => {
+    try {
+      await refetchOutput()
+    } catch (error) {
+      console.error('Failed to refresh terminal output:', error)
+    }
+  }
 
   const handleClearTerminal = () => {
     setIsCleared(true)
   }
 
   const handleCopyOutput = async () => {
-    if (!outputData?.output) return
+    if (!rawOutputRef.current) return
 
-    const rawOutput = stripAnsi(outputData.output)
+    const rawOutput = stripAnsi(rawOutputRef.current)
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(rawOutput)
@@ -128,32 +263,15 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     if (outputRef.current && outputRef.current.contains(event.target as Node)) {
       return
     }
-    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+    if (
+      event.target instanceof HTMLButtonElement ||
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
       return
     }
     inputRef.current?.focus()
   }
-
-  // Reset cleared state when terminal ID changes or output is refreshed
-  useEffect(() => {
-    setIsCleared(false)
-  }, [terminalId, outputData])
-
-  useEffect(() => {
-    if (autoScroll && outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight
-    }
-  }, [htmlOutput, autoScroll])
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [terminalId])
-
-  useEffect(() => {
-    if (!sendInputMutation.isPending) {
-      inputRef.current?.focus()
-    }
-  }, [sendInputMutation.isPending])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -174,6 +292,8 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     }
   }
 
+  const displayHtml = isCleared ? CLEARED_MESSAGE : renderedHtml || (isFetchingOutput ? 'Loading…' : EMPTY_MESSAGE)
+
   return (
     <div className="terminal-viewer" onClick={handleViewerClick}>
       <div className="terminal-viewer-header">
@@ -193,11 +313,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
         </div>
 
         <div className="terminal-viewer-actions">
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={() => refetchOutput()}
-            title="Refresh output"
-          >
+          <button className="btn btn-sm btn-secondary" onClick={handleManualRefresh} title="Refresh output">
             <RotateCw size={14} />
           </button>
           <button
@@ -211,29 +327,17 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
             className="btn btn-sm btn-secondary"
             onClick={handleCopyOutput}
             title={copyStatus === 'copied' ? 'Copied!' : copyStatus === 'error' ? 'Copy failed' : 'Copy terminal output'}
-            disabled={!outputData?.output}
+            disabled={!rawOutputRef.current}
           >
             {copyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={handleExit}
-            title="Send exit command"
-          >
+          <button className="btn btn-sm btn-secondary" onClick={handleExit} title="Send exit command">
             Exit
           </button>
-          <button
-            className="btn btn-sm btn-danger"
-            onClick={handleDelete}
-            title="Delete terminal"
-          >
+          <button className="btn btn-sm btn-danger" onClick={handleDelete} title="Delete terminal">
             <Trash2 size={14} />
           </button>
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={onClose}
-            title="Close"
-          >
+          <button className="btn btn-sm btn-secondary" onClick={onClose} title="Close">
             <X size={14} />
           </button>
         </div>
@@ -250,11 +354,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
             Auto-scroll
           </label>
         </div>
-        <pre
-          ref={outputRef}
-          className="terminal-output"
-          dangerouslySetInnerHTML={{ __html: htmlOutput }}
-        />
+        <pre ref={outputRef} className="terminal-output" dangerouslySetInnerHTML={{ __html: displayHtml }} />
       </div>
 
       <form onSubmit={handleSubmit} className="terminal-input-form">
@@ -267,11 +367,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
           className="terminal-input"
           disabled={sendInputMutation.isPending}
         />
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={!input.trim() || sendInputMutation.isPending}
-        >
+        <button type="submit" className="btn btn-primary" disabled={!input.trim() || sendInputMutation.isPending}>
           <Send size={16} />
           Send
         </button>

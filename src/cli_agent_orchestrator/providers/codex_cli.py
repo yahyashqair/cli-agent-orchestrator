@@ -7,19 +7,19 @@ import shlex
 import subprocess
 from typing import Dict, Optional
 
-from cli_agent_orchestrator.providers.base import BaseProvider
-from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.clients.tmux import tmux_client
-from cli_agent_orchestrator.utils.terminal import wait_for_shell, wait_until_status
+from cli_agent_orchestrator.models.terminal import TerminalStatus
+from cli_agent_orchestrator.providers.base import BaseProvider
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
+from cli_agent_orchestrator.utils.terminal import wait_for_shell, wait_until_status
 
 logger = logging.getLogger(__name__)
 
 # Regular expressions for stripping ANSI/terminal control sequences
 CSI_PATTERN = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")  # ANSI CSI sequences
-OSC_PATTERN = re.compile(r"\x1b\][^\x07]*\x07")       # Operating system commands (OSC)
-ST_PATTERN = re.compile(r"\x1b\][^\x1b]*\x1b\\")     # OSC terminated by ST
-SINGLE_ESCAPE_PATTERN = re.compile(r"\x1b[@-Z\\-_]")     # Single-character escapes
+OSC_PATTERN = re.compile(r"\x1b\][^\x07]*\x07")  # Operating system commands (OSC)
+ST_PATTERN = re.compile(r"\x1b\][^\x1b]*\x1b\\")  # OSC terminated by ST
+SINGLE_ESCAPE_PATTERN = re.compile(r"\x1b[@-Z\\-_]")  # Single-character escapes
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
 # Status indicators used by Codex CLI
@@ -41,7 +41,13 @@ ERROR_TOKENS = (
 class CodexCliProvider(BaseProvider):
     """Provider for Codex CLI integration."""
 
-    def __init__(self, terminal_id: str, session_name: str, window_name: str, agent_profile: Optional[str] = None):
+    def __init__(
+        self,
+        terminal_id: str,
+        session_name: str,
+        window_name: str,
+        agent_profile: Optional[str] = None,
+    ):
         super().__init__(terminal_id, session_name, window_name)
         self._initialized = False
         self._agent_profile = agent_profile
@@ -75,11 +81,7 @@ class CodexCliProvider(BaseProvider):
 
         for key, value in runtime_env.items():
             quoted = shlex.quote(str(value))
-            tmux_client.send_keys(
-                self.session_name,
-                self.window_name,
-                f"export {key}={quoted}"
-            )
+            tmux_client.send_keys(self.session_name, self.window_name, f"export {key}={quoted}")
 
         command = "codex"
         # Fire up the interactive Codex TUI inside the tmux pane.
@@ -177,15 +179,15 @@ class CodexCliProvider(BaseProvider):
         """Extract the last Codex response from full tmux history."""
         # Trim escape codes so we can safely parse the Codex text transcript.
         clean = self._strip_output(script_output)
-        prompt_index = clean.rfind('\n›')
+        prompt_index = clean.rfind("\n›")
         if prompt_index == -1:
-            prompt_index = clean.rfind('›')
+            prompt_index = clean.rfind("›")
         if prompt_index == -1:
             raise ValueError("Incomplete Codex CLI response - no final prompt detected")
 
         search_area = clean[:prompt_index]
         # Responses always begin with a bullet followed by optional indentation.
-        bullet_index = search_area.rfind('•')
+        bullet_index = search_area.rfind("•")
         if bullet_index == -1:
             raise ValueError("No Codex CLI response found - no bullet pattern detected")
 
@@ -199,10 +201,10 @@ class CodexCliProvider(BaseProvider):
             stripped = line.strip()
             if not stripped:
                 continue
-            if stripped.startswith('•'):
-                collected.append(stripped.lstrip('•').strip())
+            if stripped.startswith("•"):
+                collected.append(stripped.lstrip("•").strip())
                 continue
-            if line.startswith('  ') or line.startswith('\t'):
+            if line.startswith("  ") or line.startswith("\t"):
                 collected.append(line.strip())
             else:
                 break
@@ -210,7 +212,7 @@ class CodexCliProvider(BaseProvider):
         if not collected:
             raise ValueError("Empty Codex CLI response - no content found")
 
-        message = '\n'.join(collected).strip()
+        message = "\n".join(collected).strip()
         return message
 
     def exit_cli(self) -> str:
@@ -225,9 +227,9 @@ class CodexCliProvider(BaseProvider):
     @staticmethod
     def _strip_output(output: str) -> str:
         """Remove ANSI escape sequences and control characters."""
-        text = CSI_PATTERN.sub('', output)
-        text = OSC_PATTERN.sub('', text)
-        text = ST_PATTERN.sub('', text)
-        text = SINGLE_ESCAPE_PATTERN.sub('', text)
-        text = CONTROL_CHAR_PATTERN.sub('', text)
-        return text.replace('\r', '')
+        text = CSI_PATTERN.sub("", output)
+        text = OSC_PATTERN.sub("", text)
+        text = ST_PATTERN.sub("", text)
+        text = SINGLE_ESCAPE_PATTERN.sub("", text)
+        text = CONTROL_CHAR_PATTERN.sub("", text)
+        return text.replace("\r", "")

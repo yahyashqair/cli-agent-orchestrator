@@ -6,8 +6,8 @@ from unittest.mock import call, patch
 
 import pytest
 
-from cli_agent_orchestrator.providers.codex_cli import CodexCliProvider
 from cli_agent_orchestrator.models.terminal import TerminalStatus
+from cli_agent_orchestrator.providers.codex_cli import CodexCliProvider
 
 # Fixtures are tmux capture logs recorded from real Codex CLI sessions.
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -72,7 +72,9 @@ class TestCodexCliInitialization:
             }
         )
 
-        provider = CodexCliProvider("abcd1234", "session", "window", agent_profile="product_supervisor")
+        provider = CodexCliProvider(
+            "abcd1234", "session", "window", agent_profile="product_supervisor"
+        )
         provider.initialize()
 
         mock_subprocess.assert_called_once()
@@ -85,7 +87,11 @@ class TestCodexCliInitialization:
         assert cmd_args[-1] == "cao-mcp-server"
         # First send_keys exports env, second launches Codex
         assert mock_tmux.send_keys.call_args_list[0].args[2] == "export CAO_TERMINAL_ID=abcd1234"
-        assert mock_tmux.send_keys.call_args_list[1].args[2].startswith("export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=")
+        assert (
+            mock_tmux.send_keys.call_args_list[1]
+            .args[2]
+            .startswith("export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=")
+        )
         assert mock_tmux.send_keys.call_args_list[2] == call("session", "window", "codex")
 
 

@@ -2,10 +2,14 @@
 
 import logging
 from typing import Dict, List
+
+from cli_agent_orchestrator.clients.database import (
+    delete_terminals_by_session,
+    list_terminals_by_session,
+)
 from cli_agent_orchestrator.clients.tmux import tmux_client
-from cli_agent_orchestrator.clients.database import list_terminals_by_session, delete_terminals_by_session
-from cli_agent_orchestrator.providers.manager import provider_manager
 from cli_agent_orchestrator.constants import SESSION_PREFIX
+from cli_agent_orchestrator.providers.manager import provider_manager
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +39,26 @@ def list_sessions() -> List[Dict]:
                         )
 
                     last_active = terminal.get("last_active")
-                    terminals.append({
-                        "id": terminal["id"],
-                        "session_name": terminal["tmux_session"],
-                        "provider": terminal["provider"],
-                        "agent_profile": terminal.get("agent_profile") or "unknown",
-                        "status": status,
-                        "last_active": last_active.isoformat() if last_active else None,
-                        "created_at": terminal.get("created_at"),
-                        "updated_at": last_active.isoformat() if last_active else None,
-                    })
+                    terminals.append(
+                        {
+                            "id": terminal["id"],
+                            "session_name": terminal["tmux_session"],
+                            "provider": terminal["provider"],
+                            "agent_profile": terminal.get("agent_profile") or "unknown",
+                            "status": status,
+                            "last_active": last_active.isoformat() if last_active else None,
+                            "created_at": terminal.get("created_at"),
+                            "updated_at": last_active.isoformat() if last_active else None,
+                        }
+                    )
 
-                sessions.append({
-                    "name": s["name"],
-                    "terminal_count": len(terminals),
-                    "terminals": terminals,
-                })
+                sessions.append(
+                    {
+                        "name": s["name"],
+                        "terminal_count": len(terminals),
+                        "terminals": terminals,
+                    }
+                )
 
         return sessions
     except Exception as e:
@@ -63,16 +71,16 @@ def get_session(session_name: str) -> Dict:
     try:
         if not tmux_client.session_exists(session_name):
             raise ValueError(f"Session '{session_name}' not found")
-        
+
         tmux_sessions = tmux_client.list_sessions()
         session_data = next((s for s in tmux_sessions if s["id"] == session_name), None)
-        
+
         if not session_data:
             raise ValueError(f"Session '{session_name}' not found")
-        
+
         terminals = list_terminals_by_session(session_name)
         return {"session": session_data, "terminals": terminals}
-        
+
     except Exception as e:
         logger.error(f"Failed to get session {session_name}: {e}")
         raise
@@ -83,22 +91,22 @@ def delete_session(session_name: str) -> bool:
     try:
         if not tmux_client.session_exists(session_name):
             raise ValueError(f"Session '{session_name}' not found")
-        
+
         terminals = list_terminals_by_session(session_name)
-        
+
         # Cleanup providers
         for terminal in terminals:
             provider_manager.cleanup_provider(terminal["id"])
-        
+
         # Kill tmux session
         tmux_client.kill_session(session_name)
-        
+
         # Delete terminal metadata
         delete_terminals_by_session(session_name)
-        
+
         logger.info(f"Deleted session: {session_name}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Failed to delete session {session_name}: {e}")
         raise

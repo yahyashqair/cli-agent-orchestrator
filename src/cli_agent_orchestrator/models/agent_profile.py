@@ -1,11 +1,13 @@
 """Agent profile models."""
 
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class McpServer(BaseModel):
     """MCP server configuration."""
+
     type: Optional[str] = None
     command: str
     args: Optional[List[str]] = None
@@ -15,6 +17,7 @@ class McpServer(BaseModel):
 
 class AgentProfile(BaseModel):
     """Agent profile configuration with Q CLI agent fields."""
+
     name: str
     description: str
     system_prompt: Optional[str] = None  # The markdown content
