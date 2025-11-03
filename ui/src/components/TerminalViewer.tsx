@@ -53,6 +53,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const copyResetTimeoutRef = useRef<number | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const rawOutputRef = useRef<string>('')
+  const pendingRefreshRef = useRef(false)
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -109,6 +110,22 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     staleTime: Infinity,
   })
 
+  const triggerRefresh = useCallback(() => {
+    if (isFetchingOutput) {
+      pendingRefreshRef.current = true
+      return
+    }
+    pendingRefreshRef.current = false
+    void refetchOutput()
+  }, [isFetchingOutput, refetchOutput])
+
+  useEffect(() => {
+    if (!isFetchingOutput && pendingRefreshRef.current) {
+      pendingRefreshRef.current = false
+      void refetchOutput()
+    }
+  }, [isFetchingOutput, refetchOutput])
+
   useEffect(() => {
     const output = outputData?.output ?? ''
     rawOutputRef.current = output
@@ -126,7 +143,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     mutationFn: (message: string) => api.sendInput(terminalId, message),
     onSuccess: () => {
       setInput('')
-      void refetchOutput()
+      triggerRefresh()
     },
   })
 
@@ -159,14 +176,14 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
           terminal_id: terminalId,
         }),
       )
-      void refetchOutput()
+      triggerRefresh()
     }
 
     websocket.onmessage = (event: MessageEvent<string>) => {
       try {
         const message = JSON.parse(event.data) as TerminalUpdateMessage
         if (message.type === 'terminal_update' && message.terminal_id === terminalId) {
-          void refetchOutput()
+          triggerRefresh()
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error)
@@ -197,7 +214,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
         websocket.close()
       }
     }
-  }, [terminalId, refetchOutput])
+  }, [terminalId, triggerRefresh])
 
   useEffect(() => {
     if (autoScroll && !isCleared && outputRef.current) {
