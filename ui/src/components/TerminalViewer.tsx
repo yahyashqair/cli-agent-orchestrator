@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2 } from 'lucide-react'
+import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser } from 'lucide-react'
 import { api } from '../api/client'
 import Convert from 'ansi-to-html'
 import './TerminalViewer.css'
@@ -13,6 +13,7 @@ interface TerminalViewerProps {
 export default function TerminalViewer({ terminalId, onClose }: TerminalViewerProps) {
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
+  const [isCleared, setIsCleared] = useState(false)
   const outputRef = useRef<HTMLPreElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
@@ -63,6 +64,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
 
   // Convert ANSI output to HTML
   const htmlOutput = useMemo(() => {
+    if (isCleared) return '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
     if (!outputData?.output) return 'No output yet...'
     try {
       return convert.toHtml(outputData.output)
@@ -70,7 +72,16 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
       console.error('Error converting ANSI to HTML:', error)
       return outputData.output
     }
-  }, [outputData?.output, convert])
+  }, [outputData?.output, convert, isCleared])
+
+  const handleClearTerminal = () => {
+    setIsCleared(true)
+  }
+
+  // Reset cleared state when terminal ID changes or output is refreshed
+  useEffect(() => {
+    setIsCleared(false)
+  }, [terminalId, outputData])
 
   useEffect(() => {
     if (autoScroll && outputRef.current) {
@@ -132,6 +143,13 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
             title="Refresh output"
           >
             <RotateCw size={14} />
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={handleClearTerminal}
+            title="Clear terminal display"
+          >
+            <Eraser size={14} />
           </button>
           <button
             className="btn btn-sm btn-secondary"

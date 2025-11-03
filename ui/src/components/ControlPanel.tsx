@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Play } from 'lucide-react'
+import { X, Play, History } from 'lucide-react'
 import { api } from '../api/client'
 import './ControlPanel.css'
 
@@ -21,6 +21,18 @@ const AGENT_PROFILES = [
   { value: 'reviewer', label: 'Reviewer', description: 'Performs code reviews' },
 ]
 
+interface RecentConfig {
+  provider: string
+  agentProfile: string
+  workingDirectory: string
+  sessionName: string
+  createNewSession: boolean
+  timestamp: number
+}
+
+const RECENT_CONFIGS_KEY = 'cao-recent-configs'
+const MAX_RECENT_CONFIGS = 5
+
 export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) {
   const [provider, setProvider] = useState('claude_code')
   const [agentProfile, setAgentProfile] = useState('developer')
@@ -29,8 +41,49 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   const [createNewSession, setCreateNewSession] = useState(true)
   const [selectedSession, setSelectedSession] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [recentConfigs, setRecentConfigs] = useState<RecentConfig[]>(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_CONFIGS_KEY)
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
 
   const queryClient = useQueryClient()
+
+  // Save configuration to recent configs
+  const saveRecentConfig = () => {
+    const config: RecentConfig = {
+      provider,
+      agentProfile,
+      workingDirectory,
+      sessionName,
+      createNewSession,
+      timestamp: Date.now()
+    }
+
+    const updated = [
+      config,
+      ...recentConfigs.filter(c =>
+        c.provider !== provider ||
+        c.agentProfile !== agentProfile ||
+        c.workingDirectory !== workingDirectory
+      )
+    ].slice(0, MAX_RECENT_CONFIGS)
+
+    setRecentConfigs(updated)
+    localStorage.setItem(RECENT_CONFIGS_KEY, JSON.stringify(updated))
+  }
+
+  // Load configuration from recent config
+  const loadRecentConfig = (config: RecentConfig) => {
+    setProvider(config.provider)
+    setAgentProfile(config.agentProfile)
+    setWorkingDirectory(config.workingDirectory)
+    setSessionName(config.sessionName)
+    setCreateNewSession(config.createNewSession)
+  }
 
   const { data: sessions = [], isPending: isSessionsLoading } = useQuery({
     queryKey: ['sessions'],
@@ -56,6 +109,18 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
     }
   }, [createNewSession, attachableSessions, selectedSession])
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   const createSessionMutation = useMutation({
     mutationFn: async () => {
       setErrorMessage('')
@@ -71,6 +136,7 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
       return api.createTerminal(selectedSession, provider, agentProfile, workingDirectory || undefined)
     },
     onSuccess: () => {
+      saveRecentConfig()
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
       queryClient.invalidateQueries({ predicate: ({ queryKey }) => queryKey[0] === 'terminal' })
       onSuccess()
@@ -101,6 +167,36 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
         </div>
 
         <form onSubmit={handleSubmit} className="control-panel-form">
+          {recentConfigs.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="recentConfig">
+                <History size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                Recent Configurations
+              </label>
+              <select
+                id="recentConfig"
+                className="form-control"
+                onChange={(e) => {
+                  const config = recentConfigs[parseInt(e.target.value)]
+                  if (config) loadRecentConfig(config)
+                }}
+                value=""
+              >
+                <option value="">Select a recent configuration...</option>
+                {recentConfigs.map((config, index) => {
+                  const providerLabel = PROVIDERS.find(p => p.value === config.provider)?.label || config.provider
+                  const profileLabel = AGENT_PROFILES.find(p => p.value === config.agentProfile)?.label || config.agentProfile
+                  return (
+                    <option key={index} value={index}>
+                      {providerLabel} - {profileLabel}
+                      {config.workingDirectory && ` (${config.workingDirectory})`}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="provider">Provider</label>
             <select

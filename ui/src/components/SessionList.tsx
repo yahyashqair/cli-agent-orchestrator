@@ -1,9 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Trash2, Terminal as TerminalIcon } from 'lucide-react'
+import { ChevronDown, ChevronRight, Trash2, Terminal as TerminalIcon, Clock, Download } from 'lucide-react'
 import { api } from '../api/client'
 import type { Session } from '../types'
 import './SessionList.css'
+
+/**
+ * Calculate duration from a timestamp to now
+ * @param timestamp ISO timestamp string
+ * @returns Formatted duration string
+ */
+function formatDuration(timestamp: string): string {
+  const now = Date.now()
+  const created = new Date(timestamp).getTime()
+  const diffMs = now - created
+
+  const seconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 0) return `${days}d ${hours % 24}h`
+  if (hours > 0) return `${hours}h ${minutes % 60}m`
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`
+  return `${seconds}s`
+}
 
 interface SessionListProps {
   sessions: Session[]
@@ -17,7 +38,16 @@ export default function SessionList({
   onTerminalSelect,
 }: SessionListProps) {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [, setUpdateTick] = useState(0)
   const queryClient = useQueryClient()
+
+  // Update durations every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUpdateTick(tick => tick + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const deleteSessionMutation = useMutation({
     mutationFn: api.deleteSession,
@@ -60,6 +90,65 @@ export default function SessionList({
     }
   }
 
+  /**
+   * Export sessions data as JSON
+   */
+  const handleExportJSON = () => {
+    const dataStr = JSON.stringify(sessions, null, 2)
+    const blob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `cao-sessions-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Export sessions data as CSV
+   */
+  const handleExportCSV = () => {
+    // Flatten data for CSV: one row per terminal
+    const rows: string[][] = [
+      ['Session Name', 'Terminal ID', 'Agent Profile', 'Provider', 'Status', 'Created At', 'Updated At']
+    ]
+
+    sessions.forEach(session => {
+      if (session.terminals && session.terminals.length > 0) {
+        session.terminals.forEach(terminal => {
+          rows.push([
+            session.name,
+            terminal.id,
+            terminal.agent_profile,
+            terminal.provider,
+            terminal.status,
+            terminal.created_at,
+            terminal.updated_at
+          ])
+        })
+      } else {
+        // Session with no terminals
+        rows.push([session.name, '', '', '', '', '', ''])
+      }
+    })
+
+    const csvContent = rows.map(row =>
+      row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `cao-sessions-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   if (sessions.length === 0) {
     return (
       <div className="session-list-empty">
@@ -71,7 +160,27 @@ export default function SessionList({
 
   return (
     <div className="session-list">
-      <h2 className="session-list-title">Sessions</h2>
+      <div className="session-list-header">
+        <h2 className="session-list-title">Sessions</h2>
+        <div className="export-buttons">
+          <button
+            className="btn-icon"
+            onClick={handleExportJSON}
+            title="Export as JSON"
+          >
+            <Download size={14} />
+            JSON
+          </button>
+          <button
+            className="btn-icon"
+            onClick={handleExportCSV}
+            title="Export as CSV"
+          >
+            <Download size={14} />
+            CSV
+          </button>
+        </div>
+      </div>
       {sessions.map(session => {
         const isExpanded = expandedSessions.has(session.name)
 
@@ -113,6 +222,10 @@ export default function SessionList({
                           <span className="terminal-provider">{terminal.provider}</span>
                           <span className={`status-badge status-${terminal.status.toLowerCase()}`}>
                             {terminal.status}
+                          </span>
+                          <span className="terminal-duration" title={`Created: ${new Date(terminal.created_at).toLocaleString()}`}>
+                            <Clock size={12} style={{ marginRight: '2px', verticalAlign: 'middle' }} />
+                            {formatDuration(terminal.created_at)}
                           </span>
                         </div>
                       </div>
