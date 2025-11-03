@@ -54,6 +54,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const wsRef = useRef<WebSocket | null>(null)
   const rawOutputRef = useRef<string>('')
   const pendingRefreshRef = useRef(false)
+  const isFetchingRef = useRef(false)
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -111,15 +112,16 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   })
 
   const triggerRefresh = useCallback(() => {
-    if (isFetchingOutput) {
+    if (isFetchingRef.current) {
       pendingRefreshRef.current = true
       return
     }
     pendingRefreshRef.current = false
     void refetchOutput()
-  }, [isFetchingOutput, refetchOutput])
+  }, [refetchOutput])
 
   useEffect(() => {
+    isFetchingRef.current = isFetchingOutput
     if (!isFetchingOutput && pendingRefreshRef.current) {
       pendingRefreshRef.current = false
       void refetchOutput()
