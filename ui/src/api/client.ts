@@ -11,9 +11,9 @@ export const api = {
   },
 
   // Sessions
-  createSession: async (provider: string, agentProfile: string, sessionName?: string) => {
+  createSession: async (provider: string, agentProfile: string, sessionName?: string, workingDirectory?: string) => {
     const { data } = await axios.post<Terminal>(`${API_BASE}/sessions`, null, {
-      params: { provider, agent_profile: agentProfile, session_name: sessionName },
+      params: { provider, agent_profile: agentProfile, session_name: sessionName, working_directory: workingDirectory },
     });
     return data;
   },
@@ -34,11 +34,11 @@ export const api = {
   },
 
   // Terminals
-  createTerminal: async (sessionName: string, provider: string, agentProfile: string) => {
+  createTerminal: async (sessionName: string, provider: string, agentProfile: string, workingDirectory?: string) => {
     const { data } = await axios.post<Terminal>(
       `${API_BASE}/sessions/${sessionName}/terminals`,
       null,
-      { params: { provider, agent_profile: agentProfile } }
+      { params: { provider, agent_profile: agentProfile, working_directory: workingDirectory } }
     );
     return data;
   },

@@ -25,33 +25,33 @@ class OutputMode(str, Enum):
 
 
 def create_terminal(provider: str, agent_profile: str, session_name: str = None,
-                   new_session: bool = False) -> Terminal:
+                   new_session: bool = False, working_directory: str = None) -> Terminal:
     """Create terminal, optionally creating new session with it."""
     try:
         terminal_id = generate_terminal_id()
-        
+
         # Generate session name if not provided
         if not session_name:
             session_name = generate_session_name()
-        
+
         window_name = generate_window_name(agent_profile)
-        
+
         if new_session:
             # Apply SESSION_PREFIX if not already present
             if not session_name.startswith(SESSION_PREFIX):
                 session_name = f"{SESSION_PREFIX}{session_name}"
-            
+
             # Check if session already exists
             if tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' already exists")
-            
+
             # Create new tmux session with this terminal as the initial window
-            tmux_client.create_session(session_name, window_name, terminal_id)
+            tmux_client.create_session(session_name, window_name, terminal_id, working_directory)
         else:
             # Add window to existing session
             if not tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' not found")
-            window_name = tmux_client.create_window(session_name, window_name, terminal_id)
+            window_name = tmux_client.create_window(session_name, window_name, terminal_id, working_directory)
         
         # Save terminal metadata to database
         db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile)

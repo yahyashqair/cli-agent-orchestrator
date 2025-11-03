@@ -25,6 +25,7 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   const [provider, setProvider] = useState('claude_code')
   const [agentProfile, setAgentProfile] = useState('developer')
   const [sessionName, setSessionName] = useState('')
+  const [workingDirectory, setWorkingDirectory] = useState('')
   const [createNewSession, setCreateNewSession] = useState(true)
   const [selectedSession, setSelectedSession] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -60,14 +61,14 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
       setErrorMessage('')
 
       if (createNewSession) {
-        return api.createSession(provider, agentProfile, sessionName || undefined)
+        return api.createSession(provider, agentProfile, sessionName || undefined, workingDirectory || undefined)
       }
 
       if (!selectedSession) {
         throw new Error('Please select a session to attach the agent to.')
       }
 
-      return api.createTerminal(selectedSession, provider, agentProfile)
+      return api.createTerminal(selectedSession, provider, agentProfile, workingDirectory || undefined)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
@@ -130,6 +131,20 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="workingDirectory">
+              Working Directory <span className="optional">(optional)</span>
+            </label>
+            <input
+              id="workingDirectory"
+              type="text"
+              value={workingDirectory}
+              onChange={(e) => setWorkingDirectory(e.target.value)}
+              placeholder="Current directory if empty"
+              className="form-control"
+            />
           </div>
 
           <div className="form-group">

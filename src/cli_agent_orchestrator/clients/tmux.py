@@ -20,36 +20,49 @@ class TmuxClient:
     def __init__(self):
         self.server = libtmux.Server()
     
-    def create_session(self, session_name: str, window_name: str, terminal_id: str) -> str:
+    def create_session(self, session_name: str, window_name: str, terminal_id: str, working_directory: str = None) -> str:
         """Create detached tmux session with initial window and return window name."""
         try:
             environment = os.environ.copy()
             environment['CAO_TERMINAL_ID'] = terminal_id
-            
-            session = self.server.new_session(
-                session_name=session_name,
-                window_name=window_name,
-                detach=True,
-                environment=environment
-            )
-            logger.info(f"Created tmux session: {session_name} with window: {window_name}")
+
+            kwargs = {
+                "session_name": session_name,
+                "window_name": window_name,
+                "detach": True,
+                "environment": environment
+            }
+
+            if working_directory:
+                kwargs["start_directory"] = working_directory
+
+            session = self.server.new_session(**kwargs)
+            logger.info(f"Created tmux session: {session_name} with window: {window_name}" +
+                       (f" in directory: {working_directory}" if working_directory else ""))
             return session.windows[0].name
         except Exception as e:
             logger.error(f"Failed to create session {session_name}: {e}")
             raise
     
-    def create_window(self, session_name: str, window_name: str, terminal_id: str) -> str:
+    def create_window(self, session_name: str, window_name: str, terminal_id: str, working_directory: str = None) -> str:
         """Create window in session and return window name."""
         try:
             session = self.server.sessions.get(session_name=session_name)
             if not session:
                 raise ValueError(f"Session '{session_name}' not found")
-            
-            window = session.new_window(window_name=window_name, environment={
-                'CAO_TERMINAL_ID': terminal_id
-            })
-            
-            logger.info(f"Created window '{window.name}' in session '{session_name}'")
+
+            kwargs = {
+                "window_name": window_name,
+                "environment": {'CAO_TERMINAL_ID': terminal_id}
+            }
+
+            if working_directory:
+                kwargs["start_directory"] = working_directory
+
+            window = session.new_window(**kwargs)
+
+            logger.info(f"Created window '{window.name}' in session '{session_name}'" +
+                       (f" in directory: {working_directory}" if working_directory else ""))
             return window.name
         except Exception as e:
             logger.error(f"Failed to create window in session {session_name}: {e}")

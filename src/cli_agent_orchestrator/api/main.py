@@ -144,7 +144,8 @@ async def health_check():
 async def create_session(
     provider: str,
     agent_profile: str,
-    session_name: str = None
+    session_name: str = None,
+    working_directory: str = None
 ) -> Terminal:
     """Create a new session with exactly one terminal."""
     try:
@@ -152,10 +153,11 @@ async def create_session(
             provider=provider,
             agent_profile=agent_profile,
             session_name=session_name,
-            new_session=True
+            new_session=True,
+            working_directory=working_directory
         )
         return result
-        
+
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -195,7 +197,8 @@ async def delete_session(session_name: str) -> Dict:
 async def create_terminal_in_session(
     session_name: str,
     provider: str,
-    agent_profile: str
+    agent_profile: str,
+    working_directory: str = None
 ) -> Terminal:
     """Create additional terminal in existing session."""
     try:
@@ -203,7 +206,8 @@ async def create_terminal_in_session(
             provider=provider,
             agent_profile=agent_profile,
             session_name=session_name,
-            new_session=False
+            new_session=False,
+            working_directory=working_directory
         )
         return result
     except ValueError as e:
