@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser } from 'lucide-react'
+import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check } from 'lucide-react'
 import { api } from '../api/client'
 import Convert from 'ansi-to-html'
 import './TerminalViewer.css'
@@ -14,8 +15,10 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [isCleared, setIsCleared] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
   const outputRef = useRef<HTMLPreElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const copyResetTimeoutRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
 
   // Create ANSI to HTML converter
@@ -62,6 +65,17 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     },
   })
 
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current)
+        copyResetTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  const stripAnsi = (value: string) => value.replace(/\u001B\[[0-9;]*[A-Za-z]/g, '')
+
   // Convert ANSI output to HTML
   const htmlOutput = useMemo(() => {
     if (isCleared) return '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
@@ -76,6 +90,48 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
 
   const handleClearTerminal = () => {
     setIsCleared(true)
+  }
+
+  const handleCopyOutput = async () => {
+    if (!outputData?.output) return
+
+    const rawOutput = stripAnsi(outputData.output)
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(rawOutput)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = rawOutput
+        textarea.setAttribute('readonly', '')
+        textarea.style.position = 'absolute'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      setCopyStatus('copied')
+    } catch (error) {
+      console.error('Failed to copy terminal output:', error)
+      setCopyStatus('error')
+    } finally {
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current)
+      }
+      copyResetTimeoutRef.current = window.setTimeout(() => {
+        setCopyStatus('idle')
+      }, 2000)
+    }
+  }
+
+  const handleViewerClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (outputRef.current && outputRef.current.contains(event.target as Node)) {
+      return
+    }
+    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      return
+    }
+    inputRef.current?.focus()
   }
 
   // Reset cleared state when terminal ID changes or output is refreshed
@@ -119,7 +175,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   }
 
   return (
-    <div className="terminal-viewer">
+    <div className="terminal-viewer" onClick={handleViewerClick}>
       <div className="terminal-viewer-header">
         <div className="terminal-viewer-title">
           <TerminalIcon size={20} />
@@ -150,6 +206,14 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
             title="Clear terminal display"
           >
             <Eraser size={14} />
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={handleCopyOutput}
+            title={copyStatus === 'copied' ? 'Copied!' : copyStatus === 'error' ? 'Copy failed' : 'Copy terminal output'}
+            disabled={!outputData?.output}
+          >
+            {copyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
           </button>
           <button
             className="btn btn-sm btn-secondary"

@@ -242,14 +242,14 @@ This document outlines comprehensive enhancement suggestions for the CLI Agent O
 
 ## Quick Wins (Immediate Implementation)
 
-1. **Add Copy Button** to terminal output sections
-2. **Terminal Auto-Focus** when clicking terminal card (already done for input)
-3. **Status Badge Animations** (pulsing dot for PROCESSING)
-4. **Recent Configurations** dropdown in Launch modal
-5. **Clear Terminal Button** to reset output view
-6. **Session Duration Display** (time since creation)
-7. **Export Sessions List** as CSV/JSON
-8. **Keyboard Shortcuts** for common actions (ESC to close modals, etc.)
+- [x] **Add Copy Button** to terminal output sections
+- [x] **Terminal Auto-Focus** when clicking terminal card
+- [x] **Status Badge Animations** (pulsing dot for PROCESSING)
+- [x] **Recent Configurations** dropdown in Launch modal
+- [x] **Clear Terminal Button** to reset output view
+- [x] **Session Duration Display** (time since creation)
+- [x] **Export Sessions List** as CSV/JSON
+- [x] **Keyboard Shortcuts** for common actions (ESC to close modals, etc.)
 
 ---
 
@@ -267,10 +267,10 @@ This document outlines comprehensive enhancement suggestions for the CLI Agent O
 ## Implementation Status
 
 ### Completed
-- [ ] None yet
+- [x] Quick Wins (Phase 0)
 
 ### In Progress
-- [ ] Quick Wins (Phase 0)
+- _None currently_
 
 ### Planned
 - [ ] Phase 1: Core Functionality
