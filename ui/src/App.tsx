@@ -49,7 +49,16 @@ function App() {
     return (
       <div className="app">
         <header className="app-header">
-          <h1>CLI Agent Orchestrator</h1>
+          <div className="app-title">
+            <img
+              src="/icons/icon-192.png"
+              alt="CLI Agent Orchestrator logo"
+              className="app-logo"
+              width={40}
+              height={40}
+            />
+            <h1>CLI Agent Orchestrator</h1>
+          </div>
           <div className="header-actions">
             <ThemeToggle theme={theme} onThemeChange={handleThemeChange} />
           </div>
@@ -85,7 +94,16 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>CLI Agent Orchestrator</h1>
+        <div className="app-title">
+          <img
+            src="/icons/icon-192.png"
+            alt="CLI Agent Orchestrator logo"
+            className="app-logo"
+            width={40}
+            height={40}
+          />
+          <h1>CLI Agent Orchestrator</h1>
+        </div>
         <div className="header-actions">
           <ThemeToggle theme={theme} onThemeChange={handleThemeChange} />
           <button
