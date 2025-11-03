@@ -307,6 +307,214 @@ cli-agent-orchestrator/
 └── uv.lock                         # Locked dependencies
 ```
 
+## Running the Application
+
+### Backend Server
+
+The backend server provides the REST API and orchestration logic.
+
+**Run in foreground (Terminal 1):**
+```bash
+cao-server
+```
+
+**Run in background:**
+```bash
+nohup cao-server > /tmp/cao-server.log 2>&1 &
+
+# View logs
+tail -f ~/.aws/cli-agent-orchestrator/logs/cao_*.log
+
+# Or view the nohup log
+tail -f /tmp/cao-server.log
+```
+
+**Server Details:**
+- Default URL: `http://localhost:9889`
+- Health check: `curl http://localhost:9889/health`
+- API docs: `http://localhost:9889/docs`
+
+**Stop background server:**
+```bash
+# Find the process
+ps aux | grep cao-server
+
+# Kill it
+pkill -f cao-server
+```
+
+### Frontend UI
+
+The frontend provides a web interface for monitoring and controlling agents.
+
+**Run in foreground (Terminal 2):**
+```bash
+cd ui
+npm install  # First time only
+npm run dev
+```
+
+**Run in background:**
+```bash
+cd ui
+nohup npm run dev > /tmp/cao-ui.log 2>&1 &
+
+# View logs
+tail -f /tmp/cao-ui.log
+```
+
+**UI Details:**
+- Default URL: `http://localhost:3000` (or `http://localhost:3001` if 3000 is busy)
+- Features:
+  - Real-time dashboard with agent status
+  - Live terminal output viewer
+  - Session and terminal management
+  - Launch new agents with custom settings
+  - Send input to terminals directly
+
+**Stop background UI:**
+```bash
+# Kill the npm process
+pkill -f "npm run dev"
+```
+
+**Build for production:**
+```bash
+cd ui
+npm run build
+```
+
+### Quick All-in-One Start
+
+The fastest way to get everything running:
+
+```bash
+# Terminal 1: Start backend
+cao-server
+
+# Terminal 2: Start frontend (in a new terminal)
+cd ui && npm run dev
+
+# Open browser
+# Navigate to http://localhost:3000
+```
+
+Or run everything in the background:
+
+```bash
+# Start backend in background
+nohup cao-server > /tmp/cao-server.log 2>&1 &
+
+# Start UI in background
+cd ui && nohup npm run dev > /tmp/cao-ui.log 2>&1 &
+
+# Open browser and navigate to http://localhost:3000
+```
+
+### CLI Usage (Alternative to UI)
+
+You can also use the command-line interface instead of the web UI.
+
+**Launch agents:**
+```bash
+# Install agent profile first
+cao install developer
+
+# Launch with default settings
+cao launch --agents developer
+
+# Launch with specific provider
+cao launch --agents developer --provider claude_code
+cao launch --agents developer --provider q_cli
+cao launch --agents developer --provider codex_cli
+
+# Launch with custom session name
+cao launch --agents developer --session my-session
+```
+
+**Launch with custom working directory (via API):**
+```bash
+# Working directory support is available via API
+curl -X POST "http://localhost:9889/sessions?provider=claude_code&agent_profile=developer&working_directory=/tmp"
+
+# Or specify a project directory
+curl -X POST "http://localhost:9889/sessions?provider=claude_code&agent_profile=developer&working_directory=/home/user/myproject"
+```
+
+### Working Directory Feature
+
+When launching agents, you can specify a custom working directory.
+
+**Via Web UI:**
+1. Click "Launch New Agent"
+2. Select provider and agent profile
+3. Fill in the "Working Directory" field (e.g., `/tmp`, `/home/user/project`)
+4. Leave empty to use the current directory
+5. Click "Launch Agent"
+
+**Via API:**
+```bash
+# Create session with working directory
+curl -X POST "http://localhost:9889/sessions?provider=claude_code&agent_profile=developer&session_name=my-session&working_directory=/path/to/project"
+
+# Add terminal to existing session with working directory
+curl -X POST "http://localhost:9889/sessions/cao-my-session/terminals?provider=claude_code&agent_profile=developer&working_directory=/path/to/project"
+```
+
+**Verification:**
+The tmux session will start in the specified directory. To verify:
+
+```bash
+# Attach to the session
+tmux attach -t cao-<session-name>
+
+# Suspend Claude Code with Ctrl+Z
+# You'll see a shell prompt showing the directory: user@host:/your/directory$
+
+# Resume Claude Code
+fg
+```
+
+**Note:** The shell and tmux pane will be in the correct directory. However, when CLI providers (like Claude Code) execute commands through their internal tools, they may use their own working directory context.
+
+### Managing Sessions
+
+**List Sessions:**
+```bash
+# List all tmux sessions
+tmux list-sessions
+
+# List CAO sessions via API
+curl http://localhost:9889/sessions
+```
+
+**Attach to Session:**
+```bash
+# Attach to a specific session
+tmux attach -t cao-<session-name>
+
+# Detach from session (inside tmux)
+# Press: Ctrl+b, then d
+```
+
+**Switch Between Windows (inside tmux):**
+- `Ctrl+b, then n` - Next window
+- `Ctrl+b, then p` - Previous window
+- `Ctrl+b, then <number>` - Go to window number (0-9)
+- `Ctrl+b, then w` - List all windows (interactive selector)
+
+**Delete Sessions:**
+```bash
+# Shutdown all CAO sessions
+cao shutdown --all
+
+# Shutdown specific session
+cao shutdown --session cao-<session-name>
+
+# Or via API
+curl -X DELETE http://localhost:9889/sessions/cao-<session-name>
+```
+
 ## Resources
 
 - [Project README](README.md)
