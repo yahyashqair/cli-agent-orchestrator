@@ -19,6 +19,12 @@
   font-weight: 600;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .app-content {
   display: flex;
   flex: 1;

@@ -6,6 +6,8 @@ export type TerminalStatus =
   | 'ERROR'
   | 'UNKNOWN';
 
+export type Theme = 'dark' | 'light';
+
 export interface Terminal {
   id: string;
   session_name: string;
