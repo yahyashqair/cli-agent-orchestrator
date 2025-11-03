@@ -14,6 +14,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const outputRef = useRef<HTMLPreElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
   // Create ANSI to HTML converter
@@ -76,6 +77,16 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
       outputRef.current.scrollTop = outputRef.current.scrollHeight
     }
   }, [htmlOutput, autoScroll])
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [terminalId])
+
+  useEffect(() => {
+    if (!sendInputMutation.isPending) {
+      inputRef.current?.focus()
+    }
+  }, [sendInputMutation.isPending])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -166,6 +177,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
 
       <form onSubmit={handleSubmit} className="terminal-input-form">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
