@@ -2,9 +2,13 @@
 
 import asyncio
 import logging
+import json
+from pathlib import Path as FilePath
 from contextlib import asynccontextmanager
-from typing import List, Dict, Optional, Annotated
-from fastapi import FastAPI, HTTPException, status, Path
+from typing import List, Dict, Optional, Annotated, Set
+from fastapi import FastAPI, HTTPException, status, Path, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from watchdog.observers.polling import PollingObserver
@@ -21,6 +25,34 @@ from cli_agent_orchestrator.utils.terminal import generate_session_name
 from cli_agent_orchestrator.providers.manager import provider_manager
 
 logger = logging.getLogger(__name__)
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.discard(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        disconnected = set()
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.error(f"Error broadcasting to WebSocket: {e}")
+                disconnected.add(connection)
+
+        for conn in disconnected:
+            self.disconnect(conn)
+
+manager = ConnectionManager()
 
 
 async def flow_daemon():
@@ -91,6 +123,15 @@ app = FastAPI(
     description="Simplified CLI Agent Orchestrator API",
     version=SERVER_VERSION,
     lifespan=lifespan,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -246,7 +287,7 @@ async def create_inbox_message_endpoint(receiver_id: TerminalId, sender_id: str,
     try:
         inbox_msg = create_inbox_message(sender_id, receiver_id, message)
         inbox_service.check_and_send_pending_messages(receiver_id)
-        
+
         return {
             "success": True,
             "message_id": inbox_msg.id,
@@ -258,6 +299,29 @@ async def create_inbox_message_endpoint(receiver_id: TerminalId, sender_id: str,
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create inbox message: {str(e)}")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive and listen for client messages
+            data = await websocket.receive_text()
+
+            # Send current sessions state when requested
+            if data == "get_sessions":
+                sessions = session_service.list_sessions()
+                await websocket.send_json({
+                    "type": "sessions_update",
+                    "data": sessions
+                })
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        manager.disconnect(websocket)
 
 
 def main():

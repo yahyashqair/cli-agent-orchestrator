@@ -101,6 +101,46 @@ cao shutdown --all
 cao shutdown --session cao-my-session
 ```
 
+### Web UI (Optional)
+
+CAO includes a modern web interface for monitoring and controlling agents with real-time updates.
+
+**Features:**
+- Real-time dashboard with agent status overview
+- Live terminal output viewer with auto-scroll
+- Session and terminal management
+- Launch new agents from the UI
+- Send input to terminals directly from the browser
+
+**Setup:**
+
+1. Install Node.js dependencies:
+```bash
+cd ui
+npm install
+```
+
+2. Start the backend server (if not already running):
+```bash
+cao-server
+```
+
+3. Start the UI development server:
+```bash
+cd ui
+npm run dev
+```
+
+The UI will be available at `http://localhost:3000`
+
+**Build for production:**
+```bash
+cd ui
+npm run build
+```
+
+For more details, see [ui/README.md](ui/README.md).
+
 ### Working with tmux Sessions
 
 All agent sessions run in tmux. Useful commands:

@@ -11,10 +11,48 @@ logger = logging.getLogger(__name__)
 
 
 def list_sessions() -> List[Dict]:
-    """List all sessions from tmux."""
+    """List all sessions from tmux with their terminals."""
     try:
         tmux_sessions = tmux_client.list_sessions()
-        return [s for s in tmux_sessions if s["id"].startswith(SESSION_PREFIX)]
+        sessions = []
+
+        for s in tmux_sessions:
+            if s["id"].startswith(SESSION_PREFIX):
+                # Get terminals for this session
+                raw_terminals = list_terminals_by_session(s["name"])
+                terminals = []
+
+                for terminal in raw_terminals:
+                    status = "UNKNOWN"
+                    try:
+                        provider = provider_manager.get_provider(terminal["id"])
+                        status = provider.get_status().value
+                    except Exception as exc:  # Provider might not be initialized yet
+                        logger.debug(
+                            "Unable to resolve status for terminal %s: %s",
+                            terminal["id"],
+                            exc,
+                        )
+
+                    last_active = terminal.get("last_active")
+                    terminals.append({
+                        "id": terminal["id"],
+                        "session_name": terminal["tmux_session"],
+                        "provider": terminal["provider"],
+                        "agent_profile": terminal.get("agent_profile") or "unknown",
+                        "status": status,
+                        "last_active": last_active.isoformat() if last_active else None,
+                        "created_at": terminal.get("created_at"),
+                        "updated_at": last_active.isoformat() if last_active else None,
+                    })
+
+                sessions.append({
+                    "name": s["name"],
+                    "terminal_count": len(terminals),
+                    "terminals": terminals,
+                })
+
+        return sessions
     except Exception as e:
         logger.error(f"Failed to list sessions: {e}")
         return []

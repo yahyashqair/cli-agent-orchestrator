@@ -1,0 +1,46 @@
+export type TerminalStatus =
+  | 'IDLE'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'WAITING_USER_ANSWER'
+  | 'ERROR'
+  | 'UNKNOWN';
+
+export interface Terminal {
+  id: string;
+  session_name: string;
+  agent_profile: string;
+  provider: string;
+  status: TerminalStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Session {
+  name: string;
+  terminal_count: number;
+  terminals: Terminal[];
+}
+
+export interface InboxMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  created_at: string;
+  delivered_at?: string;
+}
+
+export interface TerminalOutput {
+  output: string;
+  mode: string;
+}
+
+export interface AgentActivity {
+  terminal_id: string;
+  agent_profile: string;
+  provider: string;
+  status: TerminalStatus;
+  last_update: string;
+  session_name: string;
+}

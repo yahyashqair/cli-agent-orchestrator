@@ -24,6 +24,7 @@ class TerminalModel(Base):
     tmux_window = Column(String, nullable=False)  # "window-name"
     provider = Column(String, nullable=False)  # "q_cli", "claude_code"
     agent_profile = Column(String)  # "developer", "reviewer" (optional)
+    created_at = Column(DateTime, default=datetime.now)
     last_active = Column(DateTime, default=datetime.now)
 
 
@@ -84,7 +85,9 @@ def create_terminal(terminal_id: str, tmux_session: str, tmux_window: str,
             "tmux_session": terminal.tmux_session,
             "tmux_window": terminal.tmux_window,
             "provider": terminal.provider,
-            "agent_profile": terminal.agent_profile
+            "agent_profile": terminal.agent_profile,
+            "created_at": terminal.created_at,
+            "last_active": terminal.last_active,
         }
 
 
@@ -117,7 +120,8 @@ def list_terminals_by_session(tmux_session: str) -> List[Dict]:
                 "tmux_window": t.tmux_window,
                 "provider": t.provider,
                 "agent_profile": t.agent_profile,
-                "last_active": t.last_active
+                "created_at": t.created_at,
+                "last_active": t.last_active,
             }
             for t in terminals
         ]

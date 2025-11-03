@@ -1,0 +1,126 @@
+.dashboard {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--bg-tertiary);
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-active {
+  border: 1px solid var(--processing);
+}
+
+.stat-active .stat-value {
+  color: var(--processing);
+}
+
+.stat-idle {
+  border: 1px solid var(--idle);
+}
+
+.stat-idle .stat-value {
+  color: var(--idle);
+}
+
+.status-breakdown {
+  margin-top: 1.5rem;
+}
+
+.status-breakdown h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.status-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.status-count {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.status-bar {
+  height: 4px;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.status-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.status-bar-fill.status-idle {
+  background: var(--idle);
+}
+
+.status-bar-fill.status-processing {
+  background: var(--processing);
+}
+
+.status-bar-fill.status-completed {
+  background: var(--completed);
+}
+
+.status-bar-fill.status-error {
+  background: var(--error);
+}
+
+.status-bar-fill.status-waiting_user_answer {
+  background: var(--warning);
+}
+
+.status-bar-fill.status-unknown {
+  background: var(--text-muted);
+}

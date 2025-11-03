@@ -1,0 +1,153 @@
+.session-list {
+  padding: 1rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.session-list-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.session-list-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.session-list-empty p {
+  margin: 0.25rem 0;
+}
+
+.session-list-empty .text-muted {
+  font-size: 0.875rem;
+}
+
+.session-item {
+  margin-bottom: 0.75rem;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.session-header:hover {
+  background: var(--border);
+}
+
+.session-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.session-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.terminal-count {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.terminal-list {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.terminal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.terminal-item:hover {
+  border-color: var(--accent);
+}
+
+.terminal-item.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+}
+
+.terminal-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.terminal-info > svg {
+  margin-top: 0.125rem;
+  color: var(--accent);
+}
+
+.terminal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.terminal-profile {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.terminal-provider {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}

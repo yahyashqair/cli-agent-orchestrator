@@ -1,5 +1,6 @@
 """Constants for CLI Agent Orchestrator application."""
 
+import os
 from pathlib import Path
 
 # Session configuration
@@ -44,7 +45,8 @@ DATABASE_FILE = DB_DIR / "cli-agent-orchestrator.db"
 DATABASE_URL = f"sqlite:///{DATABASE_FILE}"
 
 # Server configuration
-SERVER_HOST = "localhost"
+# Default to IPv4 loopback because some environments cannot bind to ::1.
+SERVER_HOST = os.getenv("CAO_SERVER_HOST", "127.0.0.1")
 SERVER_PORT = 9889
 SERVER_VERSION = "0.1.0"
 API_BASE_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
