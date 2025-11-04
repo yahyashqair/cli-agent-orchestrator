@@ -68,26 +68,32 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
         terminal_metadata = response.json()
 
         session_name = terminal_metadata["session_name"]
+        working_directory = terminal_metadata.get("working_directory")  # Inherit from parent
 
         if not profile_provider:
             provider = terminal_metadata["provider"]
 
         # Create new terminal in existing session
+        params = {"provider": provider, "agent_profile": agent_profile}
+        if working_directory:
+            params["working_directory"] = working_directory
         response = requests.post(
             f"{API_BASE_URL}/sessions/{session_name}/terminals",
-            params={"provider": provider, "agent_profile": agent_profile},
+            params=params,
         )
         response.raise_for_status()
         terminal = response.json()
     else:
-        # Create new session with terminal
+        # Create new session with terminal - use current working directory
         session_name = generate_session_name()
+        working_directory = os.getcwd()
         response = requests.post(
             f"{API_BASE_URL}/sessions",
             params={
                 "provider": provider,
                 "agent_profile": agent_profile,
                 "session_name": session_name,
+                "working_directory": working_directory,
             },
         )
         response.raise_for_status()

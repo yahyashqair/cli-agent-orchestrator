@@ -67,7 +67,9 @@ def create_terminal(
             )
 
         # Save terminal metadata to database
-        db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile)
+        db_create_terminal(
+            terminal_id, session_name, window_name, provider, agent_profile, working_directory
+        )
 
         # Initialize provider
         provider_instance = provider_manager.create_provider(

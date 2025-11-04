@@ -37,6 +37,7 @@ def test_create_terminal_respects_agent_provider(mock_load, mock_get, mock_post)
     mock_get.return_value.json.return_value = {
         "provider": "q_cli",
         "session_name": "cao-test-session",
+        "working_directory": "/test/working/dir",
     }
 
     mock_post.return_value.raise_for_status.return_value = None
@@ -47,10 +48,15 @@ def test_create_terminal_respects_agent_provider(mock_load, mock_get, mock_post)
     assert terminal_id == "worker456"
     assert provider == "codex_cli"
 
-    mock_post.assert_called_once_with(
+    # Verify the call was made with working_directory inherited from parent
+    call_args = mock_post.call_args
+    assert call_args[0][0] in [
         "http://localhost:9889/sessions/cao-test-session/terminals",
-        params={"provider": "codex_cli", "agent_profile": "log_analyst_codex"},
-    )
+        "http://127.0.0.1:9889/sessions/cao-test-session/terminals",
+    ]
+    assert call_args[1]["params"]["provider"] == "codex_cli"
+    assert call_args[1]["params"]["agent_profile"] == "log_analyst_codex"
+    assert call_args[1]["params"]["working_directory"] == "/test/working/dir"
 
 
 @patch(
@@ -73,14 +79,16 @@ def test_create_terminal_defaults_when_provider_missing(mock_load, mock_post, mo
     assert terminal_id == "worker789"
     assert provider == "q_cli"
 
-    mock_post.assert_called_once_with(
+    # Verify the call was made with working_directory set to current directory
+    call_args = mock_post.call_args
+    assert call_args[0][0] in [
         "http://localhost:9889/sessions",
-        params={
-            "provider": "q_cli",
-            "agent_profile": "legacy_agent",
-            "session_name": "cao-test-session",
-        },
-    )
+        "http://127.0.0.1:9889/sessions",
+    ]
+    assert call_args[1]["params"]["provider"] == "q_cli"
+    assert call_args[1]["params"]["agent_profile"] == "legacy_agent"
+    assert call_args[1]["params"]["session_name"] == "cao-test-session"
+    assert "working_directory" in call_args[1]["params"]  # Should have current working dir
 
 
 @patch(

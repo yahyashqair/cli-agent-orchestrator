@@ -26,6 +26,7 @@ class TerminalModel(Base):
     tmux_window = Column(String, nullable=False)  # "window-name"
     provider = Column(String, nullable=False)  # "q_cli", "claude_code"
     agent_profile = Column(String)  # "developer", "reviewer" (optional)
+    working_directory = Column(String)  # working directory path (optional)
     created_at = Column(DateTime, default=datetime.now)
     last_active = Column(DateTime, default=datetime.now)
 
@@ -80,9 +81,24 @@ def init_db():
     except Exception as exc:
         logger.warning("Failed to ensure flows.provider column exists: %s", exc)
 
+    # Lightweight migration: ensure terminals table has working_directory column
+    try:
+        with engine.begin() as connection:
+            columns = connection.execute(text("PRAGMA table_info(terminals)")).fetchall()
+            if columns and not any(column[1] == "working_directory" for column in columns):
+                connection.execute(text("ALTER TABLE terminals ADD COLUMN working_directory TEXT"))
+                logger.info("Added working_directory column to terminals table")
+    except Exception as exc:
+        logger.warning("Failed to ensure terminals.working_directory column exists: %s", exc)
+
 
 def create_terminal(
-    terminal_id: str, tmux_session: str, tmux_window: str, provider: str, agent_profile: str = None
+    terminal_id: str,
+    tmux_session: str,
+    tmux_window: str,
+    provider: str,
+    agent_profile: str = None,
+    working_directory: str = None,
 ) -> Dict:
     """Create terminal metadata record."""
     with SessionLocal() as db:
@@ -92,6 +108,7 @@ def create_terminal(
             tmux_window=tmux_window,
             provider=provider,
             agent_profile=agent_profile,
+            working_directory=working_directory,
         )
         db.add(terminal)
         db.commit()
@@ -101,6 +118,7 @@ def create_terminal(
             "tmux_window": terminal.tmux_window,
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
+            "working_directory": terminal.working_directory,
             "created_at": terminal.created_at,
             "last_active": terminal.last_active,
         }
@@ -122,6 +140,7 @@ def get_terminal_metadata(terminal_id: str) -> Optional[Dict]:
             "tmux_window": terminal.tmux_window,
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
+            "working_directory": terminal.working_directory,
             "last_active": terminal.last_active,
         }
 
