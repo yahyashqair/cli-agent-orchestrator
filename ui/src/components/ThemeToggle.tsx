@@ -1,5 +1,5 @@
 import { ChangeEvent } from 'react'
-import type { Theme } from '../types'
+import { THEMES, type Theme } from '../types'
 import './ThemeToggle.css'
 
 interface ThemeToggleProps {
@@ -24,18 +24,11 @@ function ThemeToggle({ theme, onThemeChange }: ThemeToggleProps) {
         onChange={handleChange}
         aria-label="Select color theme"
       >
-        <option value="dark">Dark</option>
-        <option value="light">Light</option>
-        <option value="cream">Cream</option>
-        <option value="lavender">Lavender</option>
-        <option value="mint">Mint</option>
-        <option value="rose">Rose</option>
-        <option value="sky">Sky</option>
-        <option value="cyberpunk">Cyberpunk</option>
-        <option value="ocean">Ocean</option>
-        <option value="forest">Forest</option>
-        <option value="sunset">Sunset</option>
-        <option value="monospace">Monospace</option>
+        {THEMES.map((availableTheme) => (
+          <option key={availableTheme} value={availableTheme}>
+            {availableTheme.charAt(0).toUpperCase() + availableTheme.slice(1)}
+          </option>
+        ))}
       </select>
     </div>
   )

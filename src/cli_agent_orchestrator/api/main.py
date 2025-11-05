@@ -399,6 +399,7 @@ async def get_inbox_messages(
                     "message": msg.message,
                     "status": msg.status,
                     "created_at": msg.created_at.isoformat(),
+                    "delivered_at": msg.delivered_at.isoformat() if msg.delivered_at else None,
                 }
                 for msg in db_messages
             ]

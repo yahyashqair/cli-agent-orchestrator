@@ -6,7 +6,25 @@ export type TerminalStatus =
   | 'ERROR'
   | 'UNKNOWN';
 
-export type Theme = 'dark' | 'light' | 'cyberpunk' | 'ocean' | 'forest' | 'sunset' | 'monospace' | 'cream' | 'lavender' | 'mint' | 'rose' | 'sky';
+const THEME_VALUES = [
+  'dark',
+  'light',
+  'cream',
+  'lavender',
+  'mint',
+  'rose',
+  'sky',
+  'cyberpunk',
+  'ocean',
+  'forest',
+  'firefox',
+  'sunset',
+  'monospace',
+] as const;
+
+export type Theme = (typeof THEME_VALUES)[number];
+
+export const THEMES: readonly Theme[] = THEME_VALUES;
 
 export interface Terminal {
   id: string;

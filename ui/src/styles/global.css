@@ -99,6 +99,25 @@
   --completed: #52b788;
 }
 
+:root.theme-firefox {
+  color-scheme: dark;
+  --bg-primary: #101820;
+  --bg-secondary: #1c2733;
+  --bg-tertiary: #283547;
+  --text-primary: #fefeff;
+  --text-secondary: #f5f6f8;
+  --text-muted: #c7cad1;
+  --border: #3a475a;
+  --accent: #ff7139;
+  --accent-hover: #ff8c5a;
+  --success: #2ecc71;
+  --warning: #f1c40f;
+  --error: #e74c3c;
+  --idle: #ff7139;
+  --processing: #ffa364;
+  --completed: #2ecc71;
+}
+
 :root.theme-forest {
   color-scheme: dark;
   --bg-primary: #1a2f1a;

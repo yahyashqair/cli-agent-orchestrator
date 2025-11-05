@@ -91,15 +91,18 @@ class CodexCliProvider(BaseProvider):
             raise TimeoutError("Codex CLI initialization timed out after 45 seconds")
 
         # If we have an agent profile with a system prompt, send it as the initial instruction
-        if self._profile and self._profile.system_prompt:
-            # Send a simplified role instruction based on the agent profile name
-            role_instruction = f"You are a {self._profile.name}. {self._profile.description}"
-            tmux_client.send_keys(self.session_name, self.window_name, role_instruction)
-            tmux_client.send_keys(self.session_name, self.window_name, "")  # Press enter
+        if self._profile:
+            system_prompt = getattr(self._profile, "system_prompt", None)
+            if system_prompt:
+                # Deliver the full agent system prompt so Codex runs with the intended rules.
+                tmux_client.send_keys(self.session_name, self.window_name, system_prompt)
+                tmux_client.send_keys(self.session_name, self.window_name, "")  # Press enter
 
-            # Wait a bit for the message to be processed
-            if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
-                logger.warning("Codex CLI did not return to idle after sending role instruction")
+                # Wait a bit for the message to be processed
+                if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
+                    logger.warning(
+                        "Codex CLI did not return to idle after sending system prompt"
+                    )
 
         self._initialized = True
         return True
@@ -115,15 +118,40 @@ class CodexCliProvider(BaseProvider):
                 logger.warning("Skipping MCP server '%s': missing command", name)
                 continue
 
+            try:
+                command_parts = shlex.split(command)
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping MCP server '%s': failed to parse command '%s': %s",
+                    name,
+                    command,
+                    exc,
+                )
+                continue
+            if not command_parts:
+                logger.warning(
+                    "Skipping MCP server '%s': command '%s' resolved to no arguments",
+                    name,
+                    command,
+                )
+                continue
+
             args = server.get("args") or []
             server_env = (server.get("env") or {}).copy()
             # Ensure downstream tools know which terminal initiated the MCP call.
             server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
 
             cmd = ["codex", "mcp", "add"]
+
+            server_type = server.get("type")
+            if server_type:
+                cmd.extend(["--type", server_type])
+
             for key, value in server_env.items():
                 cmd.extend(["--env", f"{key}={value}"])
-            cmd.extend([name, "uv", "run", "cao-mcp-server"])
+
+            cmd.append(name)
+            cmd.extend(command_parts)
             cmd.extend(args)
 
             try:

@@ -42,6 +42,7 @@ class InboxModel(Base):
     message = Column(String, nullable=False)
     status = Column(String, nullable=False)  # MessageStatus enum value
     created_at = Column(DateTime, default=datetime.now)
+    delivered_at = Column(DateTime, nullable=True)
 
 
 class FlowModel(Base):
@@ -90,6 +91,16 @@ def init_db():
                 logger.info("Added working_directory column to terminals table")
     except Exception as exc:
         logger.warning("Failed to ensure terminals.working_directory column exists: %s", exc)
+
+    # Lightweight migration: ensure inbox table has delivered_at column
+    try:
+        with engine.begin() as connection:
+            columns = connection.execute(text("PRAGMA table_info(inbox)")).fetchall()
+            if columns and not any(column[1] == "delivered_at" for column in columns):
+                connection.execute(text("ALTER TABLE inbox ADD COLUMN delivered_at TEXT"))
+                logger.info("Added delivered_at column to inbox table")
+    except Exception as exc:
+        logger.warning("Failed to ensure inbox.delivered_at column exists: %s", exc)
 
 
 def create_terminal(
@@ -211,6 +222,7 @@ def create_inbox_message(sender_id: str, receiver_id: str, message: str) -> Inbo
             message=inbox_msg.message,
             status=MessageStatus(inbox_msg.status),
             created_at=inbox_msg.created_at,
+            delivered_at=inbox_msg.delivered_at,
         )
 
 
@@ -233,6 +245,7 @@ def get_pending_messages(receiver_id: str, limit: int = 1) -> List[InboxMessage]
                 message=msg.message,
                 status=MessageStatus(msg.status),
                 created_at=msg.created_at,
+                delivered_at=msg.delivered_at,
             )
             for msg in messages
         ]
@@ -244,6 +257,8 @@ def update_message_status(message_id: int, status: MessageStatus) -> bool:
         message = db.query(InboxModel).filter(InboxModel.id == message_id).first()
         if message:
             message.status = status.value
+            if status == MessageStatus.DELIVERED:
+                message.delivered_at = datetime.now()
             db.commit()
             return True
         return False

@@ -23,3 +23,4 @@ class InboxMessage(BaseModel):
     message: str = Field(..., description="Message content")
     status: MessageStatus = Field(..., description="Message status")
     created_at: datetime = Field(..., description="Creation timestamp")
+    delivered_at: datetime | None = Field(None, description="Delivery timestamp")

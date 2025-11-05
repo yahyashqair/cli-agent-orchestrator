@@ -8,25 +8,26 @@ import ControlPanel from './components/ControlPanel'
 import FlowViewer from './components/FlowViewer'
 import FlowEditor from './components/FlowEditor'
 import ThemeToggle from './components/ThemeToggle'
-import type { Theme } from './types'
+import { THEMES, type Theme } from './types'
 import './App.css'
 
 const STORAGE_KEY = 'cao-ui-theme'
+const THEME_CLASS_NAMES = THEMES.map((value) => `theme-${value}`)
+const isTheme = (value: string | null): value is Theme =>
+  value !== null && THEMES.includes(value as Theme)
 
 function App() {
   const [hasUserSelectedTheme, setHasUserSelectedTheme] = useState(() => {
     if (typeof window === 'undefined') return false
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    const validThemes = ['dark', 'light', 'cream', 'lavender', 'mint', 'rose', 'sky', 'cyberpunk', 'ocean', 'forest', 'sunset', 'monospace']
-    return validThemes.includes(stored || '')
+    return isTheme(stored)
   })
 
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark'
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    const validThemes = ['dark', 'light', 'cream', 'lavender', 'mint', 'rose', 'sky', 'cyberpunk', 'ocean', 'forest', 'sunset', 'monospace']
-    if (stored && validThemes.includes(stored)) {
-      return stored as Theme
+    if (isTheme(stored)) {
+      return stored
     }
     const prefersLight = window.matchMedia
       ? window.matchMedia('(prefers-color-scheme: light)').matches
@@ -46,10 +47,33 @@ function App() {
     setTheme(nextTheme)
   }
 
-  const { data: sessions = [], refetch } = useQuery({
+  const { data: sessions, refetch } = useQuery({
     queryKey: ['sessions'],
     queryFn: api.listSessions,
   })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    root.classList.remove(...THEME_CLASS_NAMES)
+    const themeClass = `theme-${theme}`
+    root.classList.add(themeClass)
+    root.setAttribute('data-theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (!hasUserSelectedTheme) {
+        setTheme(event.matches ? 'light' : 'dark')
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [hasUserSelectedTheme])
 
   if (!sessions) {
     return (
@@ -73,30 +97,6 @@ function App() {
       </div>
     )
   }
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    const root = document.documentElement
-    const allThemes = ['theme-light', 'theme-dark', 'theme-cream', 'theme-lavender', 'theme-mint', 'theme-rose', 'theme-sky', 'theme-cyberpunk', 'theme-ocean', 'theme-forest', 'theme-sunset', 'theme-monospace']
-    root.classList.remove(...allThemes)
-    const themeClass = `theme-${theme}`
-    root.classList.add(themeClass)
-    root.setAttribute('data-theme', theme)
-  }, [theme])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)')
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      if (!hasUserSelectedTheme) {
-        setTheme(event.matches ? 'light' : 'dark')
-      }
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [hasUserSelectedTheme])
 
   return (
     <div className="app">
