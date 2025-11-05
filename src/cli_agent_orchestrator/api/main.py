@@ -7,14 +7,20 @@ from contextlib import asynccontextmanager
 from pathlib import Path as FilePath
 from typing import Annotated, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Path, WebSocket, WebSocketDisconnect, status
+from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import and_, or_
 from watchdog.observers.polling import PollingObserver
 
 from cli_agent_orchestrator.api.websocket_manager import TerminalWebSocketManager
-from cli_agent_orchestrator.clients.database import create_inbox_message, init_db
+from cli_agent_orchestrator.clients.database import (
+    InboxModel,
+    SessionLocal,
+    create_inbox_message,
+    init_db,
+)
 from cli_agent_orchestrator.constants import (
     INBOX_POLLING_INTERVAL,
     SERVER_HOST,
@@ -326,6 +332,128 @@ async def create_inbox_message_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create inbox message: {str(e)}",
+        )
+
+
+@app.get("/terminals/{terminal_id}/inbox/messages")
+async def get_inbox_messages(
+    terminal_id: str,
+    message_status: Optional[str] = Query(None, alias="status"),
+    direction: Optional[str] = "all",
+) -> Dict:
+    """
+    Get all inbox messages for a terminal.
+
+    Args:
+        terminal_id: Terminal ID to fetch messages for
+        message_status: Filter by message status (pending/delivered/failed)
+        direction: Filter by direction (sent/received/all)
+
+    Returns:
+        JSON with messages array and count
+    """
+    try:
+        # Validate parameters
+        if message_status and message_status not in ["pending", "delivered", "failed"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status parameter"
+            )
+
+        if direction not in ["sent", "received", "all"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid direction parameter"
+            )
+
+        with SessionLocal() as session:
+            # Build query based on direction
+            query = session.query(InboxModel)
+
+            if direction == "sent":
+                query = query.filter(InboxModel.sender_id == terminal_id)
+            elif direction == "received":
+                query = query.filter(InboxModel.receiver_id == terminal_id)
+            else:  # 'all'
+                query = query.filter(
+                    or_(
+                        InboxModel.sender_id == terminal_id,
+                        InboxModel.receiver_id == terminal_id,
+                    )
+                )
+
+            # Apply status filter if provided
+            if message_status:
+                query = query.filter(InboxModel.status == message_status)
+
+            # Order by created_at DESC (newest first)
+            query = query.order_by(InboxModel.created_at.desc())
+
+            # Execute query
+            db_messages = query.all()
+
+            # Convert to response format
+            messages = [
+                {
+                    "id": msg.id,
+                    "sender_id": msg.sender_id,
+                    "receiver_id": msg.receiver_id,
+                    "message": msg.message,
+                    "status": msg.status,
+                    "created_at": msg.created_at.isoformat(),
+                }
+                for msg in db_messages
+            ]
+
+            return {"messages": messages, "count": len(messages)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching inbox messages for terminal {terminal_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@app.get("/inbox/messages/pending/count")
+async def get_pending_messages_count() -> Dict:
+    """Get total count of pending messages across all terminals."""
+    try:
+        with SessionLocal() as session:
+            count = session.query(InboxModel).filter(InboxModel.status == "pending").count()
+
+            return {"count": count, "pending_messages": count}
+    except Exception as e:
+        logger.error(f"Error fetching pending messages count: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@app.get("/terminals/{terminal_id}/inbox/messages/pending/count")
+async def get_terminal_pending_messages_count(terminal_id: str) -> Dict:
+    """Get count of pending messages for a specific terminal."""
+    try:
+        with SessionLocal() as session:
+            count = (
+                session.query(InboxModel)
+                .filter(
+                    and_(
+                        InboxModel.receiver_id == terminal_id,
+                        InboxModel.status == "pending",
+                    )
+                )
+                .count()
+            )
+
+            return {
+                "terminal_id": terminal_id,
+                "count": count,
+                "pending_messages": count,
+            }
+    except Exception as e:
+        logger.error(f"Error fetching pending count for terminal {terminal_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
 

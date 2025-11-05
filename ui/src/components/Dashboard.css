@@ -54,6 +54,14 @@
   color: var(--idle);
 }
 
+.stat-pending-messages {
+  border: 1px solid var(--warning);
+}
+
+.stat-pending-messages .stat-value {
+  color: var(--warning);
+}
+
 .status-breakdown {
   margin-top: 1.5rem;
 }

@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
 import type { Session } from '../types'
 import './Dashboard.css'
 
@@ -7,6 +9,13 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ sessions }: DashboardProps) {
+  // Fetch pending messages count across all terminals
+  const { data: pendingMessagesCount = 0 } = useQuery({
+    queryKey: ['pending-messages-count'],
+    queryFn: () => api.getPendingMessagesCount(),
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+  })
+
   const stats = useMemo(() => {
     const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
 
@@ -60,6 +69,11 @@ export default function Dashboard({ sessions }: DashboardProps) {
         <div className="stat-card stat-idle">
           <div className="stat-value">{stats.idleTerminals}</div>
           <div className="stat-label">Idle</div>
+        </div>
+
+        <div className="stat-card stat-pending-messages">
+          <div className="stat-value">{pendingMessagesCount}</div>
+          <div className="stat-label">Pending Messages</div>
         </div>
       </div>
 

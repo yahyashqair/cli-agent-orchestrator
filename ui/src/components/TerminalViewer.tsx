@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check } from 'lucide-react'
+import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail } from 'lucide-react'
 import { api } from '../api/client'
 import Convert from 'ansi-to-html'
+import InboxViewer from './InboxViewer'
 import './TerminalViewer.css'
 
 const CLEARED_MESSAGE = '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
@@ -42,12 +43,15 @@ type TerminalUpdateMessage = {
   event: 'init' | 'changed'
 }
 
+type TabType = 'output' | 'messages';
+
 export default function TerminalViewer({ terminalId, onClose }: TerminalViewerProps) {
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [isCleared, setIsCleared] = useState(false)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
   const [renderedHtml, setRenderedHtml] = useState('')
+  const [activeTab, setActiveTab] = useState<TabType>('output')
   const outputRef = useRef<HTMLPreElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const copyResetTimeoutRef = useRef<number | null>(null)
@@ -71,6 +75,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
     setIsCleared(false)
     rawOutputRef.current = ''
     setRenderedHtml('')
+    setActiveTab('output') // Reset to output tab when terminal changes
   }, [terminalId])
 
   const stripAnsi = useCallback((value: string) => value.replace(/\u001B\[[0-9;]*[A-Za-z]/g, ''), [])
@@ -96,6 +101,13 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
   const { data: terminal } = useQuery({
     queryKey: ['terminal', terminalId],
     queryFn: () => api.getTerminal(terminalId),
+  })
+
+  // Fetch pending messages count for badge
+  const { data: pendingMessagesCount = 0 } = useQuery({
+    queryKey: ['pending-messages-count', terminalId],
+    queryFn: () => api.getPendingMessagesCount(terminalId),
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
   })
 
   const {
@@ -361,19 +373,45 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
         </div>
       </div>
 
-      <div className="terminal-output-container">
-        <div className="terminal-output-controls">
-          <label className="auto-scroll-toggle">
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-            />
-            Auto-scroll
-          </label>
-        </div>
-        <pre ref={outputRef} className="terminal-output" dangerouslySetInnerHTML={{ __html: displayHtml }} />
+      <div className="terminal-tabs">
+        <button
+          className={`terminal-tab ${activeTab === 'output' ? 'terminal-tab-active' : ''}`}
+          onClick={() => setActiveTab('output')}
+        >
+          <TerminalIcon size={14} />
+          Output
+        </button>
+        <button
+          className={`terminal-tab ${activeTab === 'messages' ? 'terminal-tab-active' : ''}`}
+          onClick={() => setActiveTab('messages')}
+        >
+          <Mail size={14} />
+          Messages
+          {pendingMessagesCount > 0 && (
+            <span className="tab-badge">{pendingMessagesCount}</span>
+          )}
+        </button>
       </div>
+
+      {activeTab === 'output' ? (
+        <div className="terminal-output-container">
+          <div className="terminal-output-controls">
+            <label className="auto-scroll-toggle">
+              <input
+                type="checkbox"
+                checked={autoScroll}
+                onChange={(e) => setAutoScroll(e.target.checked)}
+              />
+              Auto-scroll
+            </label>
+          </div>
+          <pre ref={outputRef} className="terminal-output" dangerouslySetInnerHTML={{ __html: displayHtml }} />
+        </div>
+      ) : (
+        <div className="terminal-messages-container">
+          <InboxViewer terminalId={terminalId} />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="terminal-input-form">
         <input

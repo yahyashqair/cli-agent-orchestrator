@@ -24,11 +24,14 @@ export interface Session {
   terminals: Terminal[];
 }
 
+export type MessageStatus = 'pending' | 'delivered' | 'failed';
+
 export interface InboxMessage {
   id: string;
   sender_id: string;
   receiver_id: string;
   message: string;
+  status: MessageStatus;
   created_at: string;
   delivered_at?: string;
 }
