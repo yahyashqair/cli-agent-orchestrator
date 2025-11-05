@@ -1,5 +1,6 @@
 """Unit tests for OpenCode provider."""
 
+import os
 from unittest.mock import patch
 
 from cli_agent_orchestrator.models.terminal import TerminalStatus
@@ -44,6 +45,20 @@ class TestOpenCodeStatusDetection:
         provider = OpenCodeProvider("abcd1234", "session", "window")
 
         assert provider.get_status() == TerminalStatus.COMPLETED
+
+    @patch("cli_agent_orchestrator.providers.opencode.tmux_client")
+    def test_status_authentication_prompt(self, mock_tmux):
+        mock_tmux.get_history.return_value = "┌  Add credential│◇  Select provider│  opencode│●  Create an api key at https://opencode.ai/auth│◆  Enter your API key│  _"
+        provider = OpenCodeProvider("abcd1234", "session", "window")
+
+        assert provider.get_status() == TerminalStatus.WAITING_USER_ANSWER
+
+    @patch("cli_agent_orchestrator.providers.opencode.tmux_client")
+    def test_status_error_condition(self, mock_tmux):
+        mock_tmux.get_history.return_value = "Error: Authentication failed\nPlease authenticate first"
+        provider = OpenCodeProvider("abcd1234", "session", "window")
+
+        assert provider.get_status() == TerminalStatus.ERROR
 
     @patch("cli_agent_orchestrator.providers.opencode.tmux_client")
     def test_status_plan_mode(self, mock_tmux):
@@ -174,7 +189,9 @@ class TestOpenCodeCommandBuilding:
         
         command = provider._build_opencode_command()
         
-        assert command == ["opencode"]
+        # Should include current directory as project argument
+        assert command[0] == "opencode"
+        assert len(command) == 2  # opencode + directory
         mock_load_profile.assert_not_called()
 
     @patch("cli_agent_orchestrator.providers.opencode.load_agent_profile")
@@ -189,7 +206,7 @@ class TestOpenCodeCommandBuilding:
         
         command = provider._build_opencode_command()
         
-        expected = ["opencode", "--append-system-prompt", "'Test system prompt'"]
+        expected = ["opencode", os.getcwd(), "--append-system-prompt", "'Test system prompt'"]
         assert command == expected
         mock_load_profile.assert_called_once_with("test-profile")
 
@@ -208,6 +225,7 @@ class TestOpenCodeCommandBuilding:
         
         expected = [
             "opencode", 
+            os.getcwd(),
             "--append-system-prompt", 
             "'Test system prompt'",
             "--mcp-config", 
@@ -226,3 +244,102 @@ class TestOpenCodeCommandBuilding:
             assert False, "Should have raised ProviderError"
         except Exception as e:
             assert "Failed to load agent profile" in str(e)
+
+
+class TestOpenCodeAvailabilityCheck:
+    """Tests for OpenCode CLI availability checking."""
+
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    def test_check_opencode_available_success(self, mock_which):
+        mock_which.return_value = "/usr/local/bin/opencode"
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        # Should not raise any exception
+        provider._check_opencode_available()
+
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    def test_check_opencode_available_not_found(self, mock_which):
+        mock_which.return_value = None
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        try:
+            provider._check_opencode_available()
+            assert False, "Should have raised ProviderError"
+        except Exception as e:
+            assert "OpenCode CLI is not installed" in str(e)
+            assert "curl -fsSL https://opencode.ai/install" in str(e)
+
+
+class TestOpenCodeInitializeWithAvailabilityCheck:
+    """Tests for initialize method with availability checking."""
+
+    @patch("cli_agent_orchestrator.providers.opencode.tmux_client")
+    @patch("cli_agent_orchestrator.providers.opencode.wait_until_status")
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    @patch("cli_agent_orchestrator.providers.opencode.subprocess.run")
+    def test_initialize_opencode_available_and_authenticated(self, mock_subprocess, mock_which, mock_wait, mock_tmux):
+        mock_which.return_value = "/usr/local/bin/opencode"
+        mock_subprocess.return_value.returncode = 0  # Authenticated
+        # Mock the status checks during initialization
+        mock_tmux.get_history.side_effect = [
+            "OpenCode starting...",  # First call
+            "→ ",  # Second call - idle prompt detected
+            "→ ",  # Third call - still idle after /init
+        ]
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        result = provider.initialize()
+        
+        assert result is True
+        assert provider._initialized is True
+        # Should be called for opencode command and /init command
+        assert mock_tmux.send_keys.call_count == 2
+
+    @patch("cli_agent_orchestrator.providers.opencode.tmux_client")
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    @patch("cli_agent_orchestrator.providers.opencode.subprocess.run")
+    def test_initialize_opencode_shows_auth_prompt(self, mock_subprocess, mock_which, mock_tmux):
+        mock_which.return_value = "/usr/local/bin/opencode"
+        mock_subprocess.return_value.returncode = 0
+        # Mock auth prompt detection
+        mock_tmux.get_history.return_value = "┌  Add credential│◇  Select provider│  opencode"
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        try:
+            provider.initialize()
+            assert False, "Should have raised ProviderError"
+        except Exception as e:
+            assert "OpenCode requires authentication" in str(e)
+            assert "opencode auth login" in str(e)
+
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    def test_initialize_opencode_not_available(self, mock_which):
+        mock_which.return_value = None
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        try:
+            provider.initialize()
+            assert False, "Should have raised ProviderError"
+        except Exception as e:
+            assert "OpenCode CLI is not installed" in str(e)
+
+    @patch("cli_agent_orchestrator.providers.opencode.shutil.which")
+    @patch("cli_agent_orchestrator.providers.opencode.subprocess.run")
+    def test_initialize_opencode_not_authenticated(self, mock_subprocess, mock_which):
+        mock_which.return_value = "/usr/local/bin/opencode"
+        # Simulate no credentials configured
+        mock_subprocess.return_value.returncode = 0
+        mock_subprocess.return_value.stdout = "No credentials configured"
+        
+        provider = OpenCodeProvider("test-id", "test-session", "test-window")
+        
+        try:
+            provider.initialize()
+            assert False, "Should have raised ProviderError"
+        except Exception as e:
+            assert "OpenCode is not authenticated" in str(e)

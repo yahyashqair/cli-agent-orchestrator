@@ -2,6 +2,7 @@
 
 import re
 import shlex
+import shutil
 
 from cli_agent_orchestrator.clients.tmux import tmux_client
 from cli_agent_orchestrator.constants import STATUS_CHECK_LINES
@@ -33,6 +34,14 @@ WAITING_USER_ANSWER_PATTERN = re.compile(
 IDLE_PROMPT_PATTERN_LOG = r"→[\s\xa0]"  # Same pattern for log files
 PLAN_MODE_PATTERN = r"\[Plan\]"  # OpenCode plan mode indicator
 BUILD_MODE_PATTERN = r"\[Build\]"  # OpenCode build mode indicator
+AUTH_PROMPT_PATTERN = re.compile(
+    r"(?:Add credential|Select provider|Create an api key|Enter your API key)",
+    re.IGNORECASE,
+)
+ERROR_PATTERN = re.compile(
+    r"(?:Error|Failed|Authentication required|Please authenticate)",
+    re.IGNORECASE,
+)
 
 
 class OpenCodeProvider(BaseProvider):
@@ -45,9 +54,121 @@ class OpenCodeProvider(BaseProvider):
         self._initialized = False
         self._agent_profile = agent_profile
 
+    def _check_opencode_available(self) -> None:
+        """Check if OpenCode CLI is installed and available."""
+        if not shutil.which("opencode"):
+            raise ProviderError(
+                "OpenCode CLI is not installed. Please install it first:\n"
+                "  curl -fsSL https://opencode.ai/install | bash\n"
+                "Or visit: https://opencode.ai/docs"
+            )
+
+    def _check_opencode_authenticated(self) -> None:
+        """Check if OpenCode is properly authenticated."""
+        try:
+            # Try to run a quick auth list check
+            import subprocess
+            result = subprocess.run(
+                ["opencode", "auth", "list"],
+                capture_output=True,
+                text=True,
+                timeout=10  # Increased timeout
+            )
+            # If the command succeeds, assume authentication is configured
+            # Even if no credentials are shown, let OpenCode handle it during startup
+            if result.returncode != 0:
+                # Only raise error if command completely fails
+                raise ProviderError(
+                    "OpenCode authentication check failed. Please run:\n"
+                    "  opencode auth login\n"
+                    "Then select a provider and enter your API key."
+                )
+        except subprocess.TimeoutExpired:
+            # If auth list times out, don't block initialization
+            # Let OpenCode handle authentication during startup
+            pass
+        except Exception as e:
+            # Log the error but don't block initialization
+            # OpenCode might still work even if auth check fails
+            pass
+
+    def _initialize_project(self) -> None:
+        """Initialize OpenCode project by sending /init command."""
+        import time
+        # Wait a moment for OpenCode to start up
+        time.sleep(2)
+        # Send /init command
+        tmux_client.send_keys(self.session_name, self.window_name, "/init")
+        # Wait for initialization to complete
+        time.sleep(1)
+
+    def initialize(self) -> bool:
+        """Initialize OpenCode provider by starting opencode command."""
+        # Check if OpenCode CLI is available
+        self._check_opencode_available()
+
+        # Check if OpenCode is authenticated (permissive check)
+        self._check_opencode_authenticated()
+
+        # Build command with agent profile support
+        command_parts = self._build_opencode_command()
+        command = " ".join(command_parts)
+
+        # Send OpenCode command using tmux client
+        tmux_client.send_keys(self.session_name, self.window_name, command)
+
+        # Wait for OpenCode to start up (either idle prompt or auth prompt)
+        import time
+        start_time = time.time()
+        while time.time() - start_time < 30.0:  # 30 second timeout
+            status = self.get_status()
+            
+            if status == TerminalStatus.IDLE:
+                # OpenCode is ready, proceed with initialization
+                break
+            elif status == TerminalStatus.WAITING_USER_ANSWER and AUTH_PROMPT_PATTERN.search(
+                tmux_client.get_history(self.session_name, self.window_name, tail_lines=10) or ""
+            ):
+                # OpenCode is asking for authentication
+                raise ProviderError(
+                    "OpenCode requires authentication. Please run:\n"
+                    "  opencode auth login\n"
+                    "Then select a provider and configure your API key.\n"
+                    "After authentication, try launching the agent again."
+                )
+            elif status == TerminalStatus.ERROR:
+                # Some other error occurred
+                output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=20)
+                raise ProviderError(f"OpenCode failed to start properly. Output: {output}")
+            
+            time.sleep(1.0)  # Check every second
+
+        if self.get_status() != TerminalStatus.IDLE:
+            raise TimeoutError("OpenCode initialization timed out after 30 seconds")
+
+        # Initialize project
+        self._initialize_project()
+
+        # Wait for project initialization to complete
+        start_time = time.time()
+        while time.time() - start_time < 30.0:  # Additional 30 seconds for /init
+            if self.get_status() == TerminalStatus.IDLE:
+                break
+            time.sleep(1.0)
+
+        if self.get_status() != TerminalStatus.IDLE:
+            raise TimeoutError("OpenCode project initialization (/init) timed out after 30 seconds")
+
+        self._initialized = True
+        return True
+
     def _build_opencode_command(self) -> list:
         """Build OpenCode command with agent profile if provided."""
+        import os
         command_parts = ["opencode"]
+        
+        # Add current working directory as project argument
+        command_parts.append(os.getcwd())
 
         if self._agent_profile:
             try:
@@ -68,6 +189,9 @@ class OpenCodeProvider(BaseProvider):
 
     def initialize(self) -> bool:
         """Initialize OpenCode provider by starting opencode command."""
+        # Check if OpenCode CLI is available
+        self._check_opencode_available()
+
         # Build command with agent profile support
         command_parts = self._build_opencode_command()
         command = " ".join(command_parts)
@@ -97,6 +221,14 @@ class OpenCodeProvider(BaseProvider):
         if not recent_output:
             return TerminalStatus.ERROR
 
+        # Check for error conditions first
+        if ERROR_PATTERN.search(recent_output):
+            return TerminalStatus.ERROR
+
+        # Check for authentication prompts
+        if AUTH_PROMPT_PATTERN.search(recent_output):
+            return TerminalStatus.WAITING_USER_ANSWER
+
         # Check for processing state first
         if PROCESSING_PATTERN.search(recent_output):
             return TerminalStatus.PROCESSING
@@ -115,7 +247,7 @@ class OpenCodeProvider(BaseProvider):
         if re.search(IDLE_PROMPT_PATTERN, recent_output):
             return TerminalStatus.IDLE
 
-        # If no recognizable state, return None
+        # If no recognizable state, return None (unknown)
         return None
 
     def get_idle_pattern_for_log(self) -> str:
