@@ -157,6 +157,23 @@
   font-size: 0.75rem;
 }
 
+.btn-icon {
+  padding: 0.375rem;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* Status badge */
 .status-badge {
   display: inline-block;

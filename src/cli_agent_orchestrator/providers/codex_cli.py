@@ -85,11 +85,21 @@ class CodexCliProvider(BaseProvider):
 
         command = "codex"
         # Fire up the interactive Codex TUI inside the tmux pane.
-        # TODO: map agent_profile to a named Codex workspace once the CLI supports it.
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
         if not wait_until_status(self, TerminalStatus.IDLE, timeout=45.0):
             raise TimeoutError("Codex CLI initialization timed out after 45 seconds")
+
+        # If we have an agent profile with a system prompt, send it as the initial instruction
+        if self._profile and self._profile.system_prompt:
+            # Send a simplified role instruction based on the agent profile name
+            role_instruction = f"You are a {self._profile.name}. {self._profile.description}"
+            tmux_client.send_keys(self.session_name, self.window_name, role_instruction)
+            tmux_client.send_keys(self.session_name, self.window_name, "")  # Press enter
+
+            # Wait a bit for the message to be processed
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
+                logger.warning("Codex CLI did not return to idle after sending role instruction")
 
         self._initialized = True
         return True
@@ -113,7 +123,7 @@ class CodexCliProvider(BaseProvider):
             cmd = ["codex", "mcp", "add"]
             for key, value in server_env.items():
                 cmd.extend(["--env", f"{key}={value}"])
-            cmd.extend([name, command])
+            cmd.extend([name, "uv", "run", "cao-mcp-server"])
             cmd.extend(args)
 
             try:

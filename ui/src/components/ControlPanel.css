@@ -67,7 +67,7 @@
 
 .form-control {
   padding: 0.625rem 0.875rem;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-primary);

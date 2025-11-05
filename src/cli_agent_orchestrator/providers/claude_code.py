@@ -2,9 +2,9 @@
 
 import re
 import shlex
-from typing import List
 
 from cli_agent_orchestrator.clients.tmux import tmux_client
+from cli_agent_orchestrator.constants import STATUS_CHECK_LINES
 from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.providers.base import BaseProvider
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
@@ -21,9 +21,13 @@ class ProviderError(Exception):
 # Regex patterns for Claude Code output analysis
 ANSI_CODE_PATTERN = r"\x1b\[[0-9;]*m"
 RESPONSE_PATTERN = r"⏺(?:\x1b\[[0-9;]*m)*\s+"  # Handle any ANSI codes between marker and text
-PROCESSING_PATTERN = r"[✶✢✽✻·✳].*….*\(esc to interrupt.*\)"
+PROCESSING_PATTERN = re.compile(
+    r"(?:[✶✢✽✻·✳])?\s*(?:Working|Thinking|Planning|Coding|Analyzing)"
+    r"[\s\.…(]*(?:esc to interrupt|press esc to (?:cancel|stop))",
+    re.IGNORECASE,
+)
 IDLE_PROMPT_PATTERN = r">[\s\xa0]"  # Handle both regular space and non-breaking space
-WAITING_USER_ANSWER_PATTERN = (
+WAITING_USER_ANSWER_PATTERN = re.compile(
     r"❯.*\d+\."  # Pattern for Claude showing selection options with arrow cursor
 )
 IDLE_PROMPT_PATTERN_LOG = r">[\s\xa0]"  # Same pattern for log files
@@ -85,20 +89,28 @@ class ClaudeCodeProvider(BaseProvider):
         if not output:
             return TerminalStatus.ERROR
 
+        lines = output.splitlines()
+        recent_output = "\n".join(lines[-STATUS_CHECK_LINES:]) if lines else ""
+
+        if not recent_output:
+            return TerminalStatus.ERROR
+
         # Check for processing state first
-        if re.search(PROCESSING_PATTERN, output):
+        if PROCESSING_PATTERN.search(recent_output):
             return TerminalStatus.PROCESSING
 
         # Check for waiting user answer (Claude asking for user selection)
-        if re.search(WAITING_USER_ANSWER_PATTERN, output):
+        if WAITING_USER_ANSWER_PATTERN.search(recent_output):
             return TerminalStatus.WAITING_USER_ANSWER
 
         # Check for completed state (has response + ready prompt)
-        if re.search(RESPONSE_PATTERN, output) and re.search(IDLE_PROMPT_PATTERN, output):
+        if re.search(RESPONSE_PATTERN, recent_output) and re.search(
+            IDLE_PROMPT_PATTERN, recent_output
+        ):
             return TerminalStatus.COMPLETED
 
         # Check for idle state (just ready prompt, no response)
-        if re.search(IDLE_PROMPT_PATTERN, output):
+        if re.search(IDLE_PROMPT_PATTERN, recent_output):
             return TerminalStatus.IDLE
 
         # If no recognizable state, return None

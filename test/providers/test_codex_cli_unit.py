@@ -82,9 +82,8 @@ class TestCodexCliInitialization:
         assert cmd_args[:3] == ["codex", "mcp", "add"]
         assert cmd_args[3:5] == ["--env", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES"]
         assert cmd_args[5:7] == ["--env", "CAO_TERMINAL_ID=abcd1234"]
-        assert cmd_args[7:9] == ["cao-mcp-server", "uvx"]
-        assert "--from" in cmd_args
-        assert cmd_args[-1] == "cao-mcp-server"
+        assert cmd_args[7:10] == ["cao-mcp-server", "uv", "run"]
+        assert cmd_args[10:12] == ["cao-mcp-server", "--from"]
         # First send_keys exports env, second launches Codex
         assert mock_tmux.send_keys.call_args_list[0].args[2] == "export CAO_TERMINAL_ID=abcd1234"
         assert (
