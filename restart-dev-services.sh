@@ -7,9 +7,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$REPO_ROOT/.logs"
-UV_CACHE_DIR="$REPO_ROOT/.uv_cache"
 
-mkdir -p "$LOG_DIR" "$UV_CACHE_DIR"
+mkdir -p "$LOG_DIR"
 
 BACKEND_LABEL="cao backend"
 FRONTEND_LABEL="cao frontend"
@@ -42,7 +41,7 @@ stop_service() {
 
 start_backend() {
     echo "Starting $BACKEND_LABEL..."
-    nohup env HOME="$REPO_ROOT" UV_CACHE_DIR="$UV_CACHE_DIR" uv run cao-server \
+    nohup uv run cao-server \
         >> "$LOG_DIR/cao-server.log" 2>&1 &
     local pid=$!
     echo "$BACKEND_LABEL started (PID: $pid)"
@@ -51,7 +50,7 @@ start_backend() {
 
 start_frontend() {
     echo "Starting $FRONTEND_LABEL..."
-    nohup env HOME="$REPO_ROOT" npm --prefix "$REPO_ROOT/ui" run dev -- --host 127.0.0.1 --port 3000 \
+    nohup npm --prefix "$REPO_ROOT/ui" run dev -- --host 127.0.0.1 --port 3000 \
         >> "$LOG_DIR/ui-dev.log" 2>&1 &
     local pid=$!
     echo "$FRONTEND_LABEL started (PID: $pid)"
