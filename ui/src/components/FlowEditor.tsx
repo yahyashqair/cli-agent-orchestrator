@@ -74,7 +74,7 @@ export default function FlowEditor({ onClose, onSuccess }: FlowEditorProps) {
 name: "my-scheduled-flow"
 schedule: "${useCustomSchedule ? customSchedule : selectedSchedule}"
 agent_profile: "developer"
-provider: "claude_code"
+provider: "q_cli"  # Options: q_cli, claude_code, codex_cli, opencode
 script: ""  # Optional path to script that determines if flow should run
 ---
 

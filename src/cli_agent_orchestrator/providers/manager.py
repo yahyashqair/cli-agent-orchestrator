@@ -7,6 +7,7 @@ from cli_agent_orchestrator.clients.database import get_terminal_metadata
 from cli_agent_orchestrator.providers.base import BaseProvider
 from cli_agent_orchestrator.providers.claude_code import ClaudeCodeProvider
 from cli_agent_orchestrator.providers.codex_cli import CodexCliProvider
+from cli_agent_orchestrator.providers.opencode import OpenCodeProvider
 from cli_agent_orchestrator.providers.q_cli import QCliProvider
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ class ProviderManager:
                 provider = ClaudeCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile)
             elif provider_type == "codex_cli":
                 provider = CodexCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+            elif provider_type == "opencode":
+                provider = OpenCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile)
             else:
                 raise ValueError(f"Unknown provider type: {provider_type}")
 

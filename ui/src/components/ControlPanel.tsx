@@ -13,6 +13,7 @@ const PROVIDERS = [
   { value: 'q_cli', label: 'Amazon Q Developer CLI' },
   { value: 'claude_code', label: 'Claude Code' },
   { value: 'codex_cli', label: 'Codex CLI' },
+  { value: 'opencode', label: 'OpenCode' },
 ]
 
 const AGENT_PROFILES = [
