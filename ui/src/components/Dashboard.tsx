@@ -16,8 +16,16 @@ export default function Dashboard({ sessions }: DashboardProps) {
     refetchInterval: 5000, // Auto-refresh every 5 seconds
   })
 
+  // Fetch flows for statistics
+  const { data: flows = [] } = useQuery({
+    queryKey: ['flows'],
+    queryFn: api.listFlows,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+  })
+
   const stats = useMemo(() => {
     const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
+    const enabledFlows = flows.filter(flow => flow.enabled).length
 
     return {
       totalSessions: sessions.length,
@@ -28,8 +36,10 @@ export default function Dashboard({ sessions }: DashboardProps) {
       idleTerminals: terminals.filter(t => t.status === 'IDLE').length,
       completedTerminals: terminals.filter(t => t.status === 'COMPLETED').length,
       errorTerminals: terminals.filter(t => t.status === 'ERROR').length,
+      totalFlows: flows.length,
+      enabledFlows,
     }
-  }, [sessions])
+  }, [sessions, flows])
 
   const statusBreakdown = useMemo(() => {
     const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
@@ -69,6 +79,16 @@ export default function Dashboard({ sessions }: DashboardProps) {
         <div className="stat-card stat-idle">
           <div className="stat-value">{stats.idleTerminals}</div>
           <div className="stat-label">Idle</div>
+        </div>
+
+        <div className="stat-card stat-flows">
+          <div className="stat-value">{stats.totalFlows}</div>
+          <div className="stat-label">Total Flows</div>
+        </div>
+
+        <div className="stat-card stat-enabled-flows">
+          <div className="stat-value">{stats.enabledFlows}</div>
+          <div className="stat-label">Enabled Flows</div>
         </div>
 
         <div className="stat-card stat-pending-messages">

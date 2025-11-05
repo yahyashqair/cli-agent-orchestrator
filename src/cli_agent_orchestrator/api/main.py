@@ -457,6 +457,143 @@ async def get_terminal_pending_messages_count(terminal_id: str) -> Dict:
         )
 
 
+# Flow endpoints
+@app.post("/flows", response_model=Dict, status_code=status.HTTP_201_CREATED)
+async def add_flow(file_path: str) -> Dict:
+    """Add flow from file."""
+    try:
+        flow = flow_service.add_flow(file_path)
+        return {
+            "name": flow.name,
+            "file_path": flow.file_path,
+            "schedule": flow.schedule,
+            "agent_profile": flow.agent_profile,
+            "provider": flow.provider,
+            "script": flow.script,
+            "enabled": flow.enabled,
+            "last_run": flow.last_run.isoformat() if flow.last_run else None,
+            "next_run": flow.next_run.isoformat() if flow.next_run else None,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add flow: {str(e)}",
+        )
+
+
+@app.get("/flows")
+async def list_flows() -> List[Dict]:
+    """List all flows."""
+    try:
+        flows = flow_service.list_flows()
+        return [
+            {
+                "name": flow.name,
+                "file_path": flow.file_path,
+                "schedule": flow.schedule,
+                "agent_profile": flow.agent_profile,
+                "provider": flow.provider,
+                "script": flow.script,
+                "enabled": flow.enabled,
+                "last_run": flow.last_run.isoformat() if flow.last_run else None,
+                "next_run": flow.next_run.isoformat() if flow.next_run else None,
+            }
+            for flow in flows
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list flows: {str(e)}",
+        )
+
+
+@app.get("/flows/{flow_name}")
+async def get_flow(flow_name: str) -> Dict:
+    """Get flow by name."""
+    try:
+        flow = flow_service.get_flow(flow_name)
+        return {
+            "name": flow.name,
+            "file_path": flow.file_path,
+            "schedule": flow.schedule,
+            "agent_profile": flow.agent_profile,
+            "provider": flow.provider,
+            "script": flow.script,
+            "enabled": flow.enabled,
+            "last_run": flow.last_run.isoformat() if flow.last_run else None,
+            "next_run": flow.next_run.isoformat() if flow.next_run else None,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get flow: {str(e)}",
+        )
+
+
+@app.delete("/flows/{flow_name}")
+async def remove_flow(flow_name: str) -> Dict:
+    """Remove flow."""
+    try:
+        success = flow_service.remove_flow(flow_name)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove flow: {str(e)}",
+        )
+
+
+@app.post("/flows/{flow_name}/enable")
+async def enable_flow(flow_name: str) -> Dict:
+    """Enable flow."""
+    try:
+        success = flow_service.enable_flow(flow_name)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to enable flow: {str(e)}",
+        )
+
+
+@app.post("/flows/{flow_name}/disable")
+async def disable_flow(flow_name: str) -> Dict:
+    """Disable flow."""
+    try:
+        success = flow_service.disable_flow(flow_name)
+        return {"success": success}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to disable flow: {str(e)}",
+        )
+
+
+@app.post("/flows/{flow_name}/execute")
+async def execute_flow(flow_name: str) -> Dict:
+    """Execute flow manually."""
+    try:
+        executed = flow_service.execute_flow(flow_name)
+        return {"success": True, "executed": executed}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute flow: {str(e)}",
+        )
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""

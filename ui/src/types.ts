@@ -49,3 +49,15 @@ export interface AgentActivity {
   last_update: string;
   session_name: string;
 }
+
+export interface Flow {
+  name: string;
+  file_path: string;
+  schedule: string;
+  agent_profile: string;
+  provider: string;
+  script: string;
+  enabled: boolean;
+  last_run: string | null;
+  next_run: string | null;
+}

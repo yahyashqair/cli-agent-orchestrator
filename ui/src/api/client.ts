@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Terminal, Session, TerminalOutput, InboxMessage } from '../types';
+import type { Terminal, Session, TerminalOutput, InboxMessage, Flow } from '../types';
 
 const API_BASE = '/api';
 
@@ -90,8 +90,6 @@ export const api = {
     return data;
   },
 
-  // TODO: Backend API endpoints needed - using mock data for now
-  // GET /api/terminals/{terminalId}/inbox/messages?status=pending&direction=sent|received|all
   getInboxMessages: async (terminalId: string, status?: string, direction?: string): Promise<InboxMessage[]> => {
     try {
       // Validate terminalId
@@ -99,40 +97,10 @@ export const api = {
         throw new Error('Invalid terminal ID');
       }
 
-      // TODO: Replace with real API call when backend is ready
-      // const { data } = await axios.get(`${API_BASE}/terminals/${terminalId}/inbox/messages`, {
-      //   params: { status, direction }
-      // });
-      // return data.messages;
-
-      // Mock implementation with validation
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-
-      let filteredMessages = [...mockInboxMessages];
-
-      // Filter by direction
-      if (direction === 'sent') {
-        filteredMessages = filteredMessages.filter(msg => msg.sender_id === terminalId);
-      } else if (direction === 'received') {
-        filteredMessages = filteredMessages.filter(msg => msg.receiver_id === terminalId);
-      } else {
-        // 'all' or undefined
-        filteredMessages = filteredMessages.filter(
-          msg => msg.sender_id === terminalId || msg.receiver_id === terminalId
-        );
-      }
-
-      // Filter by status
-      if (status && ['pending', 'delivered', 'failed'].includes(status)) {
-        filteredMessages = filteredMessages.filter(msg => msg.status === status);
-      }
-
-      // Validate response structure
-      if (!Array.isArray(filteredMessages)) {
-        throw new Error('Invalid response format');
-      }
-
-      return filteredMessages;
+      const { data } = await axios.get(`${API_BASE}/terminals/${terminalId}/inbox/messages`, {
+        params: { status, direction }
+      });
+      return data.messages;
     } catch (error) {
       console.error('Error fetching inbox messages:', error);
       throw error;
@@ -141,96 +109,56 @@ export const api = {
 
   getPendingMessagesCount: async (terminalId?: string): Promise<number> => {
     try {
-      // TODO: Replace with real API call when backend is ready
-      // if (terminalId) {
-      //   const { data } = await axios.get(
-      //     `${API_BASE}/terminals/${terminalId}/inbox/messages/pending/count`
-      //   );
-      //   return data.count;
-      // } else {
-      //   const { data } = await axios.get(`${API_BASE}/inbox/messages/pending/count`);
-      //   return data.count;
-      // }
-
-      // Mock implementation
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      let pendingMessages = mockInboxMessages.filter(msg => msg.status === 'pending');
-
       if (terminalId) {
-        // Validate terminalId
-        if (typeof terminalId !== 'string') {
-          throw new Error('Invalid terminal ID');
-        }
-        pendingMessages = pendingMessages.filter(msg => msg.receiver_id === terminalId);
+        const { data } = await axios.get(
+          `${API_BASE}/terminals/${terminalId}/inbox/messages/pending/count`
+        );
+        return data.count;
+      } else {
+        const { data } = await axios.get(`${API_BASE}/inbox/messages/pending/count`);
+        return data.count;
       }
-
-      const count = pendingMessages.length;
-
-      // Validate count is a number
-      if (typeof count !== 'number' || isNaN(count)) {
-        throw new Error('Invalid count value');
-      }
-
-      return count;
     } catch (error) {
       console.error('Error fetching pending messages count:', error);
       throw error;
     }
   },
-};
 
-// Mock data for inbox messages - will be replaced with real API calls
-const mockInboxMessages: InboxMessage[] = [
-  {
-    id: '1',
-    sender_id: 'terminal_abc123',
-    receiver_id: 'terminal_def456',
-    message: 'Task completed successfully. Results saved to output.json',
-    status: 'delivered',
-    created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(), // 10 minutes ago
-    delivered_at: new Date(Date.now() - 9 * 60 * 1000).toISOString(),
+  // Flows
+  addFlow: async (filePath: string) => {
+    const { data } = await axios.post<Flow>(`${API_BASE}/flows`, null, {
+      params: { file_path: filePath }
+    });
+    return data;
   },
-  {
-    id: '2',
-    sender_id: 'terminal_def456',
-    receiver_id: 'terminal_abc123',
-    message: 'Please analyze the logs in /var/logs/app.log and send back a summary',
-    status: 'pending',
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
+
+  listFlows: async () => {
+    const { data } = await axios.get<Flow[]>(`${API_BASE}/flows`);
+    return data;
   },
-  {
-    id: '3',
-    sender_id: 'terminal_xyz789',
-    receiver_id: 'terminal_def456',
-    message: 'Database migration completed. All tables updated successfully.',
-    status: 'delivered',
-    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-    delivered_at: new Date(Date.now() - 29 * 60 * 1000).toISOString(),
+
+  getFlow: async (flowName: string) => {
+    const { data } = await axios.get<Flow>(`${API_BASE}/flows/${flowName}`);
+    return data;
   },
-  {
-    id: '4',
-    sender_id: 'terminal_abc123',
-    receiver_id: 'terminal_xyz789',
-    message: 'Error processing request: Connection timeout. Please retry.',
-    status: 'failed',
-    created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago
+
+  removeFlow: async (flowName: string) => {
+    const { data } = await axios.delete(`${API_BASE}/flows/${flowName}`);
+    return data;
   },
-  {
-    id: '5',
-    sender_id: 'terminal_def456',
-    receiver_id: 'terminal_abc123',
-    message: 'Starting deployment process for production environment. ETA: 15 minutes.',
-    status: 'delivered',
-    created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
-    delivered_at: new Date(Date.now() - 59 * 60 * 1000).toISOString(),
+
+  enableFlow: async (flowName: string) => {
+    const { data } = await axios.post(`${API_BASE}/flows/${flowName}/enable`);
+    return data;
   },
-  {
-    id: '6',
-    sender_id: 'terminal_xyz789',
-    receiver_id: 'terminal_def456',
-    message: 'Code review completed. Found 3 minor issues that need attention.',
-    status: 'pending',
-    created_at: new Date(Date.now() - 1 * 60 * 1000).toISOString(), // 1 minute ago
+
+  disableFlow: async (flowName: string) => {
+    const { data } = await axios.post(`${API_BASE}/flows/${flowName}/disable`);
+    return data;
   },
-];
+
+  executeFlow: async (flowName: string) => {
+    const { data } = await axios.post(`${API_BASE}/flows/${flowName}/execute`);
+    return data;
+  },
+};

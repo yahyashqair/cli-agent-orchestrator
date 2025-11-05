@@ -16,6 +16,20 @@
   margin-bottom: 1.5rem;
 }
 
+/* For larger screens, show 3 columns */
+@media (min-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* For even larger screens, show 4 columns */
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .stat-card {
   background: var(--bg-tertiary);
   padding: 1rem;
@@ -60,6 +74,22 @@
 
 .stat-pending-messages .stat-value {
   color: var(--warning);
+}
+
+.stat-flows {
+  border: 1px solid var(--primary);
+}
+
+.stat-flows .stat-value {
+  color: var(--primary);
+}
+
+.stat-enabled-flows {
+  border: 1px solid var(--success);
+}
+
+.stat-enabled-flows .stat-value {
+  color: var(--success);
 }
 
 .status-breakdown {

@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard'
 import SessionList from './components/SessionList'
 import TerminalViewer from './components/TerminalViewer'
 import ControlPanel from './components/ControlPanel'
+import FlowViewer from './components/FlowViewer'
+import FlowEditor from './components/FlowEditor'
 import ThemeToggle from './components/ThemeToggle'
 import type { Theme } from './types'
 import './App.css'
@@ -31,6 +33,8 @@ function App() {
   })
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null)
   const [showControlPanel, setShowControlPanel] = useState(false)
+  const [activeView, setActiveView] = useState<'sessions' | 'flows'>('sessions')
+  const [showFlowEditor, setShowFlowEditor] = useState(false)
 
   const handleThemeChange = (nextTheme: Theme) => {
     setHasUserSelectedTheme(true)
@@ -115,6 +119,23 @@ function App() {
         </div>
       </header>
 
+      <div className="app-navigation">
+        <nav className="nav-tabs">
+          <button
+            className={`nav-tab ${activeView === 'sessions' ? 'nav-tab-active' : ''}`}
+            onClick={() => setActiveView('sessions')}
+          >
+            Sessions
+          </button>
+          <button
+            className={`nav-tab ${activeView === 'flows' ? 'nav-tab-active' : ''}`}
+            onClick={() => setActiveView('flows')}
+          >
+            Flows
+          </button>
+        </nav>
+      </div>
+
       {showControlPanel && (
         <ControlPanel
           onClose={() => setShowControlPanel(false)}
@@ -126,29 +147,46 @@ function App() {
       )}
 
       <div className="app-content">
-        <aside className="sidebar">
-          <Dashboard sessions={sessions} />
-          <SessionList
-            sessions={sessions}
-            selectedTerminalId={selectedTerminalId}
-            onTerminalSelect={setSelectedTerminalId}
-          />
-        </aside>
+        {activeView === 'sessions' ? (
+          <>
+            <aside className="sidebar">
+              <Dashboard sessions={sessions} />
+              <SessionList
+                sessions={sessions}
+                selectedTerminalId={selectedTerminalId}
+                onTerminalSelect={setSelectedTerminalId}
+              />
+            </aside>
 
-        <main className="main-content">
-          {selectedTerminalId ? (
-            <TerminalViewer
-              terminalId={selectedTerminalId}
-              onClose={() => setSelectedTerminalId(null)}
-            />
-          ) : (
-            <div className="empty-state">
-              <h2>Select a terminal to view</h2>
-              <p>Choose a terminal from the sidebar to monitor its output</p>
-            </div>
-          )}
-        </main>
+            <main className="main-content">
+              {selectedTerminalId ? (
+                <TerminalViewer
+                  terminalId={selectedTerminalId}
+                  onClose={() => setSelectedTerminalId(null)}
+                />
+              ) : (
+                <div className="empty-state">
+                  <h2>Select a terminal to view</h2>
+                  <p>Choose a terminal from the sidebar to monitor its output</p>
+                </div>
+              )}
+            </main>
+          </>
+        ) : (
+          <main className="main-content flows-view">
+            <FlowViewer onCreateFlow={() => setShowFlowEditor(true)} />
+          </main>
+        )}
       </div>
+
+      {showFlowEditor && (
+        <FlowEditor
+          onClose={() => setShowFlowEditor(false)}
+          onSuccess={() => {
+            setShowFlowEditor(false)
+          }}
+        />
+      )}
     </div>
   )
 }

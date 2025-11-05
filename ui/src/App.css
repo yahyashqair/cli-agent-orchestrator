@@ -40,10 +40,47 @@
   gap: 1rem;
 }
 
+.app-navigation {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.nav-tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.nav-tab-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
 .app-content {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+.flows-view {
+  width: 100%;
 }
 
 .sidebar {
