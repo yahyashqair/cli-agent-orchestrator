@@ -17,14 +17,16 @@ function App() {
   const [hasUserSelectedTheme, setHasUserSelectedTheme] = useState(() => {
     if (typeof window === 'undefined') return false
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    return stored === 'light' || stored === 'dark'
+    const validThemes = ['dark', 'light', 'cream', 'lavender', 'mint', 'rose', 'sky', 'cyberpunk', 'ocean', 'forest', 'sunset', 'monospace']
+    return validThemes.includes(stored || '')
   })
 
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark'
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') {
-      return stored
+    const validThemes = ['dark', 'light', 'cream', 'lavender', 'mint', 'rose', 'sky', 'cyberpunk', 'ocean', 'forest', 'sunset', 'monospace']
+    if (stored && validThemes.includes(stored)) {
+      return stored as Theme
     }
     const prefersLight = window.matchMedia
       ? window.matchMedia('(prefers-color-scheme: light)').matches
@@ -75,8 +77,9 @@ function App() {
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    root.classList.remove('theme-light', 'theme-dark')
-    const themeClass = theme === 'light' ? 'theme-light' : 'theme-dark'
+    const allThemes = ['theme-light', 'theme-dark', 'theme-cream', 'theme-lavender', 'theme-mint', 'theme-rose', 'theme-sky', 'theme-cyberpunk', 'theme-ocean', 'theme-forest', 'theme-sunset', 'theme-monospace']
+    root.classList.remove(...allThemes)
+    const themeClass = `theme-${theme}`
     root.classList.add(themeClass)
     root.setAttribute('data-theme', theme)
   }, [theme])

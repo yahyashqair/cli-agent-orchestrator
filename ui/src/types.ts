@@ -6,7 +6,7 @@ export type TerminalStatus =
   | 'ERROR'
   | 'UNKNOWN';
 
-export type Theme = 'dark' | 'light';
+export type Theme = 'dark' | 'light' | 'cyberpunk' | 'ocean' | 'forest' | 'sunset' | 'monospace' | 'cream' | 'lavender' | 'mint' | 'rose' | 'sky';
 
 export interface Terminal {
   id: string;

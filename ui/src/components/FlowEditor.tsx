@@ -9,18 +9,6 @@ interface FlowEditorProps {
   onSuccess: () => void;
 }
 
-const PROVIDERS = [
-  { value: 'q_cli', label: 'Amazon Q Developer CLI' },
-  { value: 'claude_code', label: 'Claude Code' },
-  { value: 'codex_cli', label: 'Codex CLI' },
-];
-
-const AGENT_PROFILES = [
-  { value: 'code_supervisor', label: 'Code Supervisor' },
-  { value: 'developer', label: 'Developer' },
-  { value: 'reviewer', label: 'Reviewer' },
-];
-
 const COMMON_SCHEDULES = [
   { label: 'Every hour', value: '0 * * * *' },
   { label: 'Daily at midnight', value: '0 0 * * *' },

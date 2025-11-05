@@ -14,7 +14,6 @@ import {
   Terminal as TerminalIcon
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { Flow } from '../types';
 import './FlowViewer.css';
 
 interface FlowViewerProps {

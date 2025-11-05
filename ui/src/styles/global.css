@@ -61,6 +61,200 @@
   --completed: #059669;
 }
 
+:root.theme-cyberpunk {
+  color-scheme: dark;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #1a0f1f;
+  --bg-tertiary: #2d1b3d;
+  --text-primary: #ff00ff;
+  --text-secondary: #00ffff;
+  --text-muted: #ff00aa;
+  --border: #ff00ff;
+  --accent: #ff00ff;
+  --accent-hover: #ff33ff;
+  --success: #00ff00;
+  --warning: #ffaa00;
+  --error: #ff0066;
+  --idle: #ff00ff;
+  --processing: #00ffff;
+  --completed: #00ff00;
+}
+
+:root.theme-ocean {
+  color-scheme: dark;
+  --bg-primary: #001e3c;
+  --bg-secondary: #002855;
+  --bg-tertiary: #003566;
+  --text-primary: #90e0ef;
+  --text-secondary: #48cae4;
+  --text-muted: #00b4d8;
+  --border: #0077b6;
+  --accent: #00b4d8;
+  --accent-hover: #0096c7;
+  --success: #52b788;
+  --warning: #f77f00;
+  --error: #e63946;
+  --idle: #48cae4;
+  --processing: #90e0ef;
+  --completed: #52b788;
+}
+
+:root.theme-forest {
+  color-scheme: dark;
+  --bg-primary: #1a2f1a;
+  --bg-secondary: #2d4a2b;
+  --bg-tertiary: #405e3b;
+  --text-primary: #a7c957;
+  --text-secondary: #8fbc55;
+  --text-muted: #6b8e23;
+  --border: #4a5d23;
+  --accent: #a7c957;
+  --accent-hover: #95b847;
+  --success: #52b788;
+  --warning: #f4a261;
+  --error: #e76f51;
+  --idle: #8fbc55;
+  --processing: #a7c957;
+  --completed: #52b788;
+}
+
+:root.theme-sunset {
+  color-scheme: light;
+  --bg-primary: #fff3e0;
+  --bg-secondary: #ffe0b2;
+  --bg-tertiary: #ffcc80;
+  --text-primary: #5d4037;
+  --text-secondary: #795548;
+  --text-muted: #8d6e63;
+  --border: #ff9800;
+  --accent: #ff6f00;
+  --accent-hover: #e65100;
+  --success: #2e7d32;
+  --warning: #ff8f00;
+  --error: #c62828;
+  --idle: #ff9800;
+  --processing: #ff6f00;
+  --completed: #2e7d32;
+}
+
+:root.theme-monospace {
+  color-scheme: dark;
+  --bg-primary: #000000;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #2d2d2d;
+  --text-primary: #00ff00;
+  --text-secondary: #00cc00;
+  --text-muted: #009900;
+  --border: #00ff00;
+  --accent: #00ff00;
+  --accent-hover: #00cc00;
+  --success: #00ff00;
+  --warning: #ffff00;
+  --error: #ff0000;
+  --idle: #00ff00;
+  --processing: #00ffff;
+  --completed: #00ff00;
+}
+
+:root.theme-monospace body {
+  font-family: 'Courier New', Courier, 'Fira Code', 'Consolas', 'Monaco', monospace;
+}
+
+:root.theme-cream {
+  color-scheme: light;
+  --bg-primary: #faf7f0;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0ead6;
+  --text-primary: #3d2f1f;
+  --text-secondary: #5d4037;
+  --text-muted: #8d6e63;
+  --border: #d7ccc8;
+  --accent: #8d6e63;
+  --accent-hover: #6d4c41;
+  --success: #2e7d32;
+  --warning: #f57c00;
+  --error: #c62828;
+  --idle: #8d6e63;
+  --processing: #a1887f;
+  --completed: #2e7d32;
+}
+
+:root.theme-lavender {
+  color-scheme: light;
+  --bg-primary: #f3e5f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e1bee7;
+  --text-primary: #4a148c;
+  --text-secondary: #6a1b9a;
+  --text-muted: #7b1fa2;
+  --border: #ce93d8;
+  --accent: #9c27b0;
+  --accent-hover: #7b1fa2;
+  --success: #2e7d32;
+  --warning: #f57c00;
+  --error: #c62828;
+  --idle: #9c27b0;
+  --processing: #ab47bc;
+  --completed: #2e7d32;
+}
+
+:root.theme-mint {
+  color-scheme: light;
+  --bg-primary: #e0f2f1;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #b2dfdb;
+  --text-primary: #004d40;
+  --text-secondary: #00695c;
+  --text-muted: #00796b;
+  --border: #80cbc4;
+  --accent: #009688;
+  --accent-hover: #00796b;
+  --success: #2e7d32;
+  --warning: #f57c00;
+  --error: #c62828;
+  --idle: #009688;
+  --processing: #26a69a;
+  --completed: #2e7d32;
+}
+
+:root.theme-rose {
+  color-scheme: light;
+  --bg-primary: #fff1f2;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ffe4e6;
+  --text-primary: #881337;
+  --text-secondary: #be123c;
+  --text-muted: #e11d48;
+  --border: #fda4af;
+  --accent: #f43f5e;
+  --accent-hover: #e11d48;
+  --success: #2e7d32;
+  --warning: #f57c00;
+  --error: #c62828;
+  --idle: #f43f5e;
+  --processing: #fb7185;
+  --completed: #2e7d32;
+}
+
+:root.theme-sky {
+  color-scheme: light;
+  --bg-primary: #e0f2fe;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #bae6fd;
+  --text-primary: #0c4a6e;
+  --text-secondary: #075985;
+  --text-muted: #0284c7;
+  --border: #7dd3fc;
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --success: #2e7d32;
+  --warning: #f57c00;
+  --error: #c62828;
+  --idle: #0ea5e9;
+  --processing: #38bdf8;
+  --completed: #2e7d32;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
