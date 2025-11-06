@@ -64,6 +64,30 @@ def test_launch_defaults_to_q_cli_when_profile_missing(monkeypatch):
     assert "Using provider 'q_cli'" in result.output
 
 
+def test_launch_accepts_copilot_provider(monkeypatch):
+    """Allow explicitly selecting the copilot_cli provider."""
+
+    runner = CliRunner()
+    captured = {}
+
+    monkeypatch.setattr(
+        launch_module.requests,
+        "post",
+        lambda url, params: _capture_post(
+            url, params, captured, "cao-session-copilot", "copilot-window"
+        ),
+    )
+
+    result = runner.invoke(
+        launch_module.launch,
+        ["--agents", "developer", "--provider", "copilot_cli", "--headless"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["params"]["provider"] == "copilot_cli"
+    assert captured["params"]["agent_profile"] == "developer"
+
+
 def _capture_post(url, params, captured, session_name, window_name):
     """Capture params for assertions while mimicking a successful POST call."""
 

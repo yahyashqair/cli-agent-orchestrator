@@ -13,6 +13,7 @@ const PROVIDERS = [
   { value: 'q_cli', label: 'Amazon Q Developer CLI' },
   { value: 'claude_code', label: 'Claude Code' },
   { value: 'codex_cli', label: 'Codex CLI' },
+  { value: 'copilot_cli', label: 'GitHub Copilot CLI' },
   { value: 'opencode', label: 'OpenCode' },
 ]
 

@@ -97,6 +97,12 @@ To launch the same profile backed by Codex CLI:
 cao launch --agents code_supervisor --provider codex_cli
 ```
 
+To use GitHub Copilot CLI:
+
+```bash
+cao launch --agents code_supervisor --provider copilot_cli
+```
+
 To launch with OpenCode:
 
 ```bash
@@ -285,7 +291,7 @@ tmux attach -t <session-name>
 cao shutdown --session <session-name>
 ```
 
-Flow frontmatter accepts an optional `provider` key (default `q_cli`). Set `provider: codex_cli` to schedule Codex-backed sessions, or `provider: opencode` for OpenCode-backed sessions when needed.
+Flow frontmatter accepts an optional `provider` key (default `q_cli`). Set `provider: codex_cli` to schedule Codex-backed sessions, `provider: copilot_cli` for GitHub Copilot, or `provider: opencode` for OpenCode-backed sessions when needed.
 
 **IMPORTANT:** The `cao-server` must be running for flows to execute on schedule.
 

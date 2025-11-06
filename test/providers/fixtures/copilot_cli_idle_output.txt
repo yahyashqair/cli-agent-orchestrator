@@ -1,0 +1,4 @@
+Welcome to GitHub Copilot CLI
+Type 'exit' to quit.
+
+You> 

@@ -22,7 +22,7 @@ from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
 @click.option(
     "--provider",
     default=None,
-    help="Provider to use. Defaults to the agent profile provider or q_cli. Available: q_cli, claude_code, codex_cli, opencode",
+    help="Provider to use. Defaults to the agent profile provider or q_cli. Available: q_cli, claude_code, codex_cli, copilot_cli, opencode",
 )
 def launch(agents, session_name, headless, provider):
     """Launch cao session with specified agent profile."""

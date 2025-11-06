@@ -7,4 +7,5 @@ class ProviderType(str, Enum):
     Q_CLI = "q_cli"
     CLAUDE_CODE = "claude_code"
     CODEX_CLI = "codex_cli"
+    COPILOT_CLI = "copilot_cli"
     OPENCODE = "opencode"

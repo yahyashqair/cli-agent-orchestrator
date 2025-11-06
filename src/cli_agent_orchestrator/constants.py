@@ -7,7 +7,7 @@ from pathlib import Path
 SESSION_PREFIX = "cao-"
 
 # Available providers
-PROVIDERS = ["q_cli", "claude_code", "codex_cli", "opencode"]
+PROVIDERS = ["q_cli", "claude_code", "codex_cli", "copilot_cli", "opencode"]
 DEFAULT_PROVIDER = "q_cli"
 
 # Tmux capture limits

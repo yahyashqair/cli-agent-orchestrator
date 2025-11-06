@@ -73,7 +73,9 @@ src/cli_agent_orchestrator/
 │   ├── manager.py         # Maps terminal_id → provider
 │   ├── q_cli.py           # Amazon Q CLI provider (q_cli)
 │   ├── claude_code.py     # Claude Code provider (claude_code)
-│   └── codex_cli.py       # Codex CLI provider (codex_cli)
+│   ├── codex_cli.py       # Codex CLI provider (codex_cli)
+│   ├── copilot_cli.py     # GitHub Copilot CLI provider (copilot_cli)
+│   └── opencode.py        # OpenCode provider (opencode)
 ├── models/                # Data models
 │   ├── terminal.py        # Terminal, TerminalStatus
 │   ├── session.py         # Session model

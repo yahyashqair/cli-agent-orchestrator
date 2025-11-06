@@ -43,7 +43,7 @@ Successfully implemented a comprehensive web-based UI for the CLI Agent Orchestr
 
 #### ControlPanel Component (`src/components/ControlPanel.tsx`)
 - **Agent Launch Interface**
-  - Provider selection (Claude Code, Q CLI)
+  - Provider selection (Q CLI, Claude Code, Codex CLI, GitHub Copilot CLI, OpenCode)
   - Agent profile selection (supervisor, developer, reviewer)
   - Custom session naming
   - New session creation options
@@ -86,7 +86,7 @@ Successfully implemented a comprehensive web-based UI for the CLI Agent Orchestr
 
 #### Agent Management
 - Launch new agents with custom profiles
-- Choose between providers (Claude Code, Q CLI)
+- Choose between providers (Q CLI, Claude Code, Codex CLI, GitHub Copilot CLI, OpenCode)
 - Create new sessions or add to existing ones
 - Custom session naming
 
