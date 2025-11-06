@@ -9,11 +9,12 @@ from cli_agent_orchestrator.models.terminal import TerminalStatus
 class BaseProvider(ABC):
     """Abstract base class for CLI tool providers."""
 
-    def __init__(self, terminal_id: str, session_name: str, window_name: str):
+    def __init__(self, terminal_id: str, session_name: str, window_name: str, working_directory: str = None):
         """Initialize provider with terminal context."""
         self.terminal_id = terminal_id
         self.session_name = session_name
         self.window_name = window_name
+        self.working_directory = working_directory
         self._status = TerminalStatus.IDLE
 
     @property

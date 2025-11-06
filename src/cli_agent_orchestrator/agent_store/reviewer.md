@@ -1,14 +1,16 @@
 ---
 name: reviewer
 description: Code Reviewer Agent in a multi-agent system
+provider: codex_cli
 mcpServers:
   cao-mcp-server:
     type: stdio
-    command: uvx
+    command: uv
     args:
-      - "--from"
-      - "git+https://github.com/awslabs/cli-agent-orchestrator.git@main"
-      - "cao-mcp-server"
+      - run
+      - --directory
+      - /home/yahyashqair/anonDev/cli-agent-orchestrator
+      - cao-mcp-server
 ---
 
 # CODE REVIEWER AGENT

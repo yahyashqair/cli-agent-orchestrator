@@ -195,43 +195,17 @@ class TestOpenCodeCommandBuilding:
         mock_load_profile.assert_not_called()
 
     @patch("cli_agent_orchestrator.providers.opencode.load_agent_profile")
-    @patch("cli_agent_orchestrator.providers.opencode.shlex.quote")
-    def test_build_command_with_profile(self, mock_quote, mock_load_profile):
+    def test_build_command_with_profile(self, mock_load_profile):
         mock_profile = mock_load_profile.return_value
-        mock_profile.system_prompt = "Test system prompt"
-        mock_profile.mcpServers = None
-        mock_quote.side_effect = lambda x: f"'{x}'"
+        mock_profile.name = "test-agent-name"
         
         provider = OpenCodeProvider("test-id", "test-session", "test-window", "test-profile")
         
         command = provider._build_opencode_command()
         
-        expected = ["opencode", os.getcwd(), "--append-system-prompt", "'Test system prompt'"]
+        expected = ["opencode", os.getcwd(), "--agent", "test-agent-name"]
         assert command == expected
         mock_load_profile.assert_called_once_with("test-profile")
-
-    @patch("cli_agent_orchestrator.providers.opencode.load_agent_profile")
-    @patch("cli_agent_orchestrator.providers.opencode.shlex.quote")
-    def test_build_command_with_mcp_config(self, mock_quote, mock_load_profile):
-        mock_profile = mock_load_profile.return_value
-        mock_profile.system_prompt = "Test system prompt"
-        mock_profile.mcpServers = {"test": "config"}
-        mock_profile.model_dump_json.return_value = '{"test": "config"}'
-        mock_quote.side_effect = lambda x: f"'{x}'"
-        
-        provider = OpenCodeProvider("test-id", "test-session", "test-window", "test-profile")
-        
-        command = provider._build_opencode_command()
-        
-        expected = [
-            "opencode", 
-            os.getcwd(),
-            "--append-system-prompt", 
-            "'Test system prompt'",
-            "--mcp-config", 
-            "'{\"test\": \"config\"}'"
-        ]
-        assert command == expected
 
     @patch("cli_agent_orchestrator.providers.opencode.load_agent_profile")
     def test_build_command_profile_error(self, mock_load_profile):

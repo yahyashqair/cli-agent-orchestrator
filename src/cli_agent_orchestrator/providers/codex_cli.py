@@ -46,9 +46,10 @@ class CodexCliProvider(BaseProvider):
         terminal_id: str,
         session_name: str,
         window_name: str,
+        working_directory: Optional[str] = None,
         agent_profile: Optional[str] = None,
     ):
-        super().__init__(terminal_id, session_name, window_name)
+        super().__init__(terminal_id, session_name, window_name, working_directory)
         self._initialized = False
         self._agent_profile = agent_profile
         self._mcp_servers: Dict[str, Dict] = {}
@@ -83,7 +84,11 @@ class CodexCliProvider(BaseProvider):
             quoted = shlex.quote(str(value))
             tmux_client.send_keys(self.session_name, self.window_name, f"export {key}={quoted}")
 
-        command = "codex"
+        # Build codex command with working directory if specified
+        if self.working_directory:
+            command = f"codex {shlex.quote(self.working_directory)}"
+        else:
+            command = "codex"
         # Fire up the interactive Codex TUI inside the tmux pane.
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
@@ -139,7 +144,10 @@ class CodexCliProvider(BaseProvider):
             args = server.get("args") or []
             server_env = (server.get("env") or {}).copy()
             # Ensure downstream tools know which terminal initiated the MCP call.
-            server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
+            # Skip for cao-mcp-server as it needs the current terminal ID from runtime env,
+            # not the terminal ID from when it was registered.
+            if name != "cao-mcp-server":
+                server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
 
             cmd = ["codex", "mcp", "add"]
 

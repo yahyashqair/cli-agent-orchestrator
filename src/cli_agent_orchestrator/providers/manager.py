@@ -26,19 +26,20 @@ class ProviderManager:
         tmux_session: str,
         tmux_window: str,
         agent_profile: str = None,
+        working_directory: str = None,
     ) -> BaseProvider:
         """Create and store provider instance."""
         try:
             if provider_type == "q_cli":
                 if not agent_profile:
                     raise ValueError("Q CLI provider requires agent_profile parameter")
-                provider = QCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = QCliProvider(terminal_id, tmux_session, tmux_window, working_directory, agent_profile)
             elif provider_type == "claude_code":
-                provider = ClaudeCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = ClaudeCodeProvider(terminal_id, tmux_session, tmux_window, working_directory, agent_profile)
             elif provider_type == "codex_cli":
-                provider = CodexCliProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = CodexCliProvider(terminal_id, tmux_session, tmux_window, working_directory, agent_profile)
             elif provider_type == "opencode":
-                provider = OpenCodeProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = OpenCodeProvider(terminal_id, tmux_session, tmux_window, working_directory, agent_profile)
             else:
                 raise ValueError(f"Unknown provider type: {provider_type}")
 
@@ -82,6 +83,7 @@ class ProviderManager:
             metadata["tmux_session"],
             metadata["tmux_window"],
             metadata["agent_profile"],
+            metadata.get("working_directory"),
         )
         logger.info(f"Created provider on-demand for terminal {terminal_id}")
         return provider
