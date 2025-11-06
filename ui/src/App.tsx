@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api/client'
-import Dashboard from './components/Dashboard'
+import Dashboard, { AgentStatusPanel } from './components/Dashboard'
 import SessionList from './components/SessionList'
 import TerminalViewer from './components/TerminalViewer'
 import ControlPanel from './components/ControlPanel'
@@ -35,6 +35,7 @@ function App() {
     return prefersLight ? 'light' : 'dark'
   })
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null)
+  const [terminalFocusKey, setTerminalFocusKey] = useState(0)
   const [showControlPanel, setShowControlPanel] = useState(false)
   const [activeView, setActiveView] = useState<'sessions' | 'flows'>('sessions')
   const [showFlowEditor, setShowFlowEditor] = useState(false)
@@ -98,6 +99,16 @@ function App() {
     )
   }
 
+  const handleTerminalSelect = (id: string) => {
+    if (!id) {
+      setSelectedTerminalId(null)
+      return
+    }
+
+    setTerminalFocusKey((key) => key + 1)
+    setSelectedTerminalId((prev) => (prev === id ? prev : id))
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -154,25 +165,33 @@ function App() {
           <>
             <aside className="sidebar">
               <Dashboard sessions={sessions} />
-              <SessionList
-                sessions={sessions}
-                selectedTerminalId={selectedTerminalId}
-                onTerminalSelect={setSelectedTerminalId}
-              />
+              <AgentStatusPanel sessions={sessions} />
             </aside>
 
             <main className="main-content">
-              {selectedTerminalId ? (
-                <TerminalViewer
-                  terminalId={selectedTerminalId}
-                  onClose={() => setSelectedTerminalId(null)}
-                />
-              ) : (
-                <div className="empty-state">
-                  <h2>Select a terminal to view</h2>
-                  <p>Choose a terminal from the sidebar to monitor its output</p>
+              <div className="session-terminal-layout">
+                <div className="terminal-column">
+                  {selectedTerminalId ? (
+                    <TerminalViewer
+                      terminalId={selectedTerminalId}
+                      focusTrigger={terminalFocusKey}
+                      onClose={() => setSelectedTerminalId(null)}
+                    />
+                  ) : (
+                    <div className="empty-state">
+                      <h2>Select a terminal to view</h2>
+                      <p>Choose a terminal from the sessions list to monitor its output</p>
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="session-column">
+                  <SessionList
+                    sessions={sessions}
+                    selectedTerminalId={selectedTerminalId}
+                    onTerminalSelect={handleTerminalSelect}
+                  />
+                </div>
+              </div>
             </main>
           </>
         ) : (

@@ -41,21 +41,6 @@ export default function Dashboard({ sessions }: DashboardProps) {
     }
   }, [sessions, flows])
 
-  const statusBreakdown = useMemo(() => {
-    const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
-    const statusCounts: Record<string, number> = {}
-
-    terminals.forEach(t => {
-      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1
-    })
-
-    return Object.entries(statusCounts).map(([status, count]) => ({
-      status,
-      count,
-      percentage: (count / terminals.length) * 100,
-    }))
-  }, [sessions])
-
   return (
     <div className="dashboard">
       <h2 className="dashboard-title">Overview</h2>
@@ -97,29 +82,68 @@ export default function Dashboard({ sessions }: DashboardProps) {
         </div>
       </div>
 
-      {statusBreakdown.length > 0 && (
+    </div>
+  )
+}
+
+function useStatusBreakdown(sessions: Session[]) {
+  return useMemo(() => {
+    const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
+    if (terminals.length === 0) return []
+
+    const statusCounts: Record<string, number> = {}
+
+    terminals.forEach(t => {
+      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1
+    })
+
+    return Object.entries(statusCounts)
+      .sort(([, aCount], [, bCount]) => bCount - aCount)
+      .map(([status, count]) => ({
+        status,
+        count,
+        percentage: (count / terminals.length) * 100,
+      }))
+  }, [sessions])
+}
+
+export function AgentStatusPanel({ sessions }: DashboardProps) {
+  const statusBreakdown = useStatusBreakdown(sessions)
+
+  if (statusBreakdown.length === 0) {
+    return (
+      <section className="agent-status-panel">
         <div className="status-breakdown">
           <h3>Agent Status</h3>
-          <div className="status-list">
-            {statusBreakdown.map(({ status, count, percentage }) => (
-              <div key={status} className="status-item">
-                <div className="status-info">
-                  <span className={`status-badge status-${status.toLowerCase()}`}>
-                    {status}
-                  </span>
-                  <span className="status-count">{count}</span>
-                </div>
-                <div className="status-bar">
-                  <div
-                    className={`status-bar-fill status-${status.toLowerCase()}`}
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="status-empty">No agents are running yet.</p>
         </div>
-      )}
-    </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="agent-status-panel">
+      <div className="status-breakdown">
+        <h3>Agent Status</h3>
+        <div className="status-list">
+          {statusBreakdown.map(({ status, count, percentage }) => (
+            <div key={status} className="status-item">
+              <div className="status-info">
+                <span className={`status-badge status-${status.toLowerCase()}`}>
+                  {status}
+                </span>
+                <span className="status-count">{count}</span>
+              </div>
+              <div className="status-bar">
+                <div
+                  className={`status-bar-fill status-${status.toLowerCase()}`}
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }

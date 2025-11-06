@@ -1,14 +1,19 @@
 .session-list {
   padding: 1rem;
-  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   overflow-y: auto;
+  min-width: 0;
+  flex: 1;
 }
 
 .session-list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin: 0;
   gap: 1rem;
 }
 
@@ -42,6 +47,7 @@
   padding: 2rem 1rem;
   text-align: center;
   color: var(--text-muted);
+  margin: auto 0;
 }
 
 .session-list-empty p {
@@ -53,7 +59,7 @@
 }
 
 .session-item {
-  margin-bottom: 0.75rem;
+  margin: 0;
 }
 
 .session-header {

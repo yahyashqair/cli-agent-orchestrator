@@ -35,6 +35,7 @@ const sanitizeControlSequences = (value: string) =>
 interface TerminalViewerProps {
   terminalId: string
   onClose: () => void
+  focusTrigger?: number
 }
 
 type TerminalUpdateMessage = {
@@ -45,7 +46,7 @@ type TerminalUpdateMessage = {
 
 type TabType = 'output' | 'messages';
 
-export default function TerminalViewer({ terminalId, onClose }: TerminalViewerProps) {
+export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }: TerminalViewerProps) {
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [isCleared, setIsCleared] = useState(false)
@@ -237,7 +238,7 @@ export default function TerminalViewer({ terminalId, onClose }: TerminalViewerPr
 
   useEffect(() => {
     inputRef.current?.focus()
-  }, [terminalId])
+  }, [terminalId, focusTrigger])
 
   useEffect(() => {
     if (!sendInputMutation.isPending) {

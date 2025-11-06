@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Trash2, Terminal as TerminalIcon, Clock, Download } from 'lucide-react'
 import { api } from '../api/client'
@@ -40,6 +40,11 @@ export default function SessionList({
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const [, setUpdateTick] = useState(0)
   const queryClient = useQueryClient()
+
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) => (b.terminal_count ?? 0) - (a.terminal_count ?? 0)),
+    [sessions]
+  )
 
   // Update durations every second
   useEffect(() => {
@@ -94,7 +99,7 @@ export default function SessionList({
    * Export sessions data as JSON
    */
   const handleExportJSON = () => {
-    const dataStr = JSON.stringify(sessions, null, 2)
+    const dataStr = JSON.stringify(sortedSessions, null, 2)
     const blob = new Blob([dataStr], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -115,7 +120,7 @@ export default function SessionList({
       ['Session Name', 'Terminal ID', 'Agent Profile', 'Provider', 'Status', 'Created At', 'Updated At']
     ]
 
-    sessions.forEach(session => {
+    sortedSessions.forEach(session => {
       if (session.terminals && session.terminals.length > 0) {
         session.terminals.forEach(terminal => {
           rows.push([
@@ -149,11 +154,13 @@ export default function SessionList({
     URL.revokeObjectURL(url)
   }
 
-  if (sessions.length === 0) {
+  if (sortedSessions.length === 0) {
     return (
-      <div className="session-list-empty">
-        <p>No active sessions</p>
-        <p className="text-muted">Launch an agent to get started</p>
+      <div className="session-list">
+        <div className="session-list-empty">
+          <p>No active sessions</p>
+          <p className="text-muted">Launch an agent to get started</p>
+        </div>
       </div>
     )
   }
@@ -181,7 +188,7 @@ export default function SessionList({
           </button>
         </div>
       </div>
-      {sessions.map(session => {
+      {sortedSessions.map(session => {
         const isExpanded = expandedSessions.has(session.name)
 
         return (
