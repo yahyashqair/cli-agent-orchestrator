@@ -34,6 +34,8 @@ class TestCodexCliInitialization:
         mock_wait_shell.assert_called_once()
         assert mock_tmux.send_keys.call_args_list == [
             call("session", "window", "export CAO_TERMINAL_ID=abcd1234"),
+            call("session", "window", "export CAO_SESSION_NAME=session"),
+            call("session", "window", "export CAO_PROVIDER=codex_cli"),
             call("session", "window", "codex"),
         ]
         assert mock_wait_status.call_count == 1
@@ -46,6 +48,24 @@ class TestCodexCliInitialization:
 
         with pytest.raises(TimeoutError, match="Shell initialization timed out"):
             provider.initialize()
+
+    @patch("cli_agent_orchestrator.providers.codex_cli.wait_for_shell")
+    @patch("cli_agent_orchestrator.providers.codex_cli.wait_until_status")
+    @patch("cli_agent_orchestrator.providers.codex_cli.tmux_client")
+    def test_initialize_with_working_directory(
+        self, mock_tmux, mock_wait_status, mock_wait_shell
+    ):
+        mock_wait_shell.return_value = True
+        mock_wait_status.return_value = True
+
+        provider = CodexCliProvider(
+            "abcd1234", "session", "window", working_directory="/tmp/workspace"
+        )
+        provider.initialize()
+
+        assert mock_tmux.send_keys.call_args_list[-1] == call(
+            "session", "window", "codex --cd /tmp/workspace"
+        )
 
     @patch("cli_agent_orchestrator.providers.codex_cli.subprocess.run")
     @patch("cli_agent_orchestrator.providers.codex_cli.load_agent_profile")
@@ -80,19 +100,29 @@ class TestCodexCliInitialization:
         mock_subprocess.assert_called_once()
         cmd_args = mock_subprocess.call_args[0][0]
         assert cmd_args[:3] == ["codex", "mcp", "add"]
-        assert cmd_args[3:5] == ["--env", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES"]
-        assert cmd_args[5:7] == ["--env", "CAO_TERMINAL_ID=abcd1234"]
-        assert cmd_args[7] == "cao-mcp-server"
-        assert cmd_args[8] == "uvx"
-        assert cmd_args[9:12] == ["--from", "git+https://example", "cao-mcp-server"]
+        expected_env = [
+            ["--env", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES"],
+            ["--env", "CAO_TERMINAL_ID=abcd1234"],
+            ["--env", "CAO_SESSION_NAME=session"],
+            ["--env", "CAO_PROVIDER=codex_cli"],
+        ]
+        env_args = [cmd_args[i : i + 2] for i in range(3, 3 + len(expected_env) * 2, 2)]
+        assert env_args == expected_env
+        trailing = cmd_args[3 + len(expected_env) * 2 :]
+        assert trailing[0] == "uvx"
+        assert trailing[1] == "--"
+        assert trailing[2:5] == ["--from", "git+https://example", "cao-mcp-server"]
+        assert trailing[-1] == "cao-mcp-server"
         # First send_keys exports env, second launches Codex
         assert mock_tmux.send_keys.call_args_list[0].args[2] == "export CAO_TERMINAL_ID=abcd1234"
+        assert mock_tmux.send_keys.call_args_list[1].args[2] == "export CAO_SESSION_NAME=session"
+        assert mock_tmux.send_keys.call_args_list[2].args[2] == "export CAO_PROVIDER=codex_cli"
         assert (
-            mock_tmux.send_keys.call_args_list[1]
+            mock_tmux.send_keys.call_args_list[3]
             .args[2]
             .startswith("export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=")
         )
-        assert mock_tmux.send_keys.call_args_list[2] == call("session", "window", "codex")
+        assert mock_tmux.send_keys.call_args_list[4] == call("session", "window", "codex")
 
     @patch("cli_agent_orchestrator.providers.codex_cli.load_agent_profile")
     @patch("cli_agent_orchestrator.providers.codex_cli.wait_for_shell")
@@ -124,11 +154,17 @@ class TestCodexCliInitialization:
         assert mock_tmux.send_keys.call_args_list[0] == call(
             "session", "window", "export CAO_TERMINAL_ID=abcd1234"
         )
-        assert mock_tmux.send_keys.call_args_list[1] == call("session", "window", "codex")
+        assert mock_tmux.send_keys.call_args_list[1] == call(
+            "session", "window", "export CAO_SESSION_NAME=session"
+        )
         assert mock_tmux.send_keys.call_args_list[2] == call(
+            "session", "window", "export CAO_PROVIDER=codex_cli"
+        )
+        assert mock_tmux.send_keys.call_args_list[3] == call("session", "window", "codex")
+        assert mock_tmux.send_keys.call_args_list[4] == call(
             "session", "window", "Full supervisor instructions.\nFollow them all."
         )
-        assert mock_tmux.send_keys.call_args_list[3] == call("session", "window", "")
+        assert mock_tmux.send_keys.call_args_list[5] == call("session", "window", "")
 
 
 class TestCodexCliStatusDetection:
@@ -151,6 +187,14 @@ class TestCodexCliStatusDetection:
         mock_tmux.get_history.return_value = load_fixture("codex_completed_output.txt")
         provider = CodexCliProvider("abcd1234", "session", "window")
         assert provider.get_status() == TerminalStatus.COMPLETED
+
+    @patch("cli_agent_orchestrator.providers.codex_cli.tmux_client")
+    def test_status_completed_transitions_back_to_idle(self, mock_tmux):
+        mock_tmux.get_history.return_value = load_fixture("codex_completed_output.txt")
+        provider = CodexCliProvider("abcd1234", "session", "window")
+        assert provider.get_status() == TerminalStatus.COMPLETED
+        # Repeated status calls after acknowledging the completion should show IDLE
+        assert provider.get_status() == TerminalStatus.IDLE
 
     @patch("cli_agent_orchestrator.providers.codex_cli.tmux_client")
     def test_status_error_on_empty_output(self, mock_tmux):

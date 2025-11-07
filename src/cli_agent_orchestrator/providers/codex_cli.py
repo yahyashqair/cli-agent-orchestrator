@@ -64,6 +64,7 @@ class CodexCliProvider(BaseProvider):
         self._mcp_servers: Dict[str, Dict] = {}
         self._env_exports: Dict[str, str] = {}
         self._profile = None
+        self._last_completion_marker: Optional[str] = None
 
         if self._agent_profile:
             try:
@@ -101,7 +102,7 @@ class CodexCliProvider(BaseProvider):
 
         # Build codex command with working directory if specified
         if self.working_directory:
-            command = f"codex {shlex.quote(self.working_directory)}"
+            command = f"codex --cd {shlex.quote(self.working_directory)}"
         else:
             command = "codex"
         # Fire up the interactive Codex TUI inside the tmux pane.
@@ -169,16 +170,14 @@ class CodexCliProvider(BaseProvider):
 
             cmd = ["codex", "mcp", "add"]
 
-            server_type = server.get("type")
-            if server_type:
-                cmd.extend(["--type", server_type])
-
             for key, value in server_env.items():
                 cmd.extend(["--env", f"{key}={value}"])
 
-            cmd.append(name)
             cmd.extend(command_parts)
-            cmd.extend(args)
+            if args:
+                cmd.append("--")
+                cmd.extend(args)
+            cmd.append(name)
 
             try:
                 result = subprocess.run(
@@ -229,10 +228,12 @@ class CodexCliProvider(BaseProvider):
 
         # Immediate failure modes trump everything else.
         if any(token in lower for token in ERROR_TOKENS):
+            self._last_completion_marker = None
             return TerminalStatus.ERROR
 
         # Codex prints human-approval prompts when it needs unblock instructions.
         if any(token in lower for token in APPROVAL_TOKENS):
+            self._last_completion_marker = None
             return TerminalStatus.WAITING_USER_ANSWER
 
         # Codex prints responses as bullet lists; the latest bullet carries the active state.
@@ -241,15 +242,21 @@ class CodexCliProvider(BaseProvider):
             tail = clean[last_bullet:]
             tail_lower = tail.lower()
             if ESC_TO_INTERRUPT in tail_lower:
+                self._last_completion_marker = None
                 return TerminalStatus.PROCESSING
             if WORKING_TOKEN in tail_lower and ESC_TO_INTERRUPT in lower:
+                self._last_completion_marker = None
                 return TerminalStatus.PROCESSING
             # Content after the bullet is the final response
             if tail.strip():
-                return TerminalStatus.COMPLETED
+                completion_marker = tail.strip()
+                if completion_marker != self._last_completion_marker:
+                    self._last_completion_marker = completion_marker
+                    return TerminalStatus.COMPLETED
 
         # Default to processing when Codex shows its spinner text.
         if ESC_TO_INTERRUPT in lower or WORKING_TOKEN in lower:
+            self._last_completion_marker = None
             return TerminalStatus.PROCESSING
 
         return TerminalStatus.IDLE
