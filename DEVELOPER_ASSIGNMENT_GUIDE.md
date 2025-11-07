@@ -339,6 +339,15 @@ for key, value in runtime_env.items():
     tmux_client.send_keys(self.session_name, self.window_name, f"export {key}={quoted}")
 ```
 
+### Additional Terminal Metadata
+To improve tool routing (especially for Codex MCP flows), the orchestrator now exports extra metadata alongside `CAO_TERMINAL_ID`:
+
+- `CAO_SESSION_NAME`: The tmux session that hosts the agent window.
+- `CAO_PROVIDER`: The active provider (e.g., `codex_cli`, `q_cli`).
+- `CAO_WORKING_DIRECTORY`: The directory that was used when the window launched (matches the value passed to `tmux`).
+
+These variables are injected directly into each tmux window's environment and forwarded to MCP servers, ensuring helper tools like `assign` can reuse the current session even if `CAO_TERMINAL_ID` is unavailable.
+
 ---
 
 ## 4. MESSAGING BETWEEN DEVELOPER AND SUPERVISOR
@@ -775,4 +784,3 @@ Supervisor Terminal (ID: supervisor123)
 | `/providers/manager.py` | Provider instantiation and management | `ProviderManager`, `create_provider()`, `get_provider()` |
 | `/models/terminal.py` | Data models | `Terminal`, `TerminalStatus` |
 | `/models/inbox.py` | Inbox data models | `InboxMessage`, `MessageStatus` |
-

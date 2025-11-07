@@ -23,12 +23,25 @@ class TmuxClient:
         self.server = libtmux.Server()
 
     def create_session(
-        self, session_name: str, window_name: str, terminal_id: str, working_directory: str = None
+        self,
+        session_name: str,
+        window_name: str,
+        terminal_id: str,
+        working_directory: str = None,
+        provider: str = None,
+        agent_profile: str = None,
     ) -> str:
         """Create detached tmux session with initial window and return window name."""
         try:
             environment = os.environ.copy()
-            environment["CAO_TERMINAL_ID"] = terminal_id
+            environment = self._prepare_environment(
+                environment,
+                terminal_id,
+                session_name,
+                provider,
+                agent_profile,
+                working_directory,
+            )
 
             kwargs = {
                 "session_name": session_name,
@@ -51,7 +64,13 @@ class TmuxClient:
             raise
 
     def create_window(
-        self, session_name: str, window_name: str, terminal_id: str, working_directory: str = None
+        self,
+        session_name: str,
+        window_name: str,
+        terminal_id: str,
+        working_directory: str = None,
+        provider: str = None,
+        agent_profile: str = None,
     ) -> str:
         """Create window in session and return window name."""
         try:
@@ -59,7 +78,17 @@ class TmuxClient:
             if not session:
                 raise ValueError(f"Session '{session_name}' not found")
 
-            kwargs = {"window_name": window_name, "environment": {"CAO_TERMINAL_ID": terminal_id}}
+            kwargs = {
+                "window_name": window_name,
+                "environment": self._prepare_environment(
+                    {},
+                    terminal_id,
+                    session_name,
+                    provider,
+                    agent_profile,
+                    working_directory,
+                ),
+            }
 
             if working_directory:
                 kwargs["start_directory"] = working_directory
@@ -74,6 +103,37 @@ class TmuxClient:
         except Exception as e:
             logger.error(f"Failed to create window in session {session_name}: {e}")
             raise
+
+    @staticmethod
+    def _prepare_environment(
+        base_env: Dict[str, str],
+        terminal_id: str,
+        session_name: str,
+        provider: str = None,
+        agent_profile: str = None,
+        working_directory: str = None,
+    ) -> Dict[str, str]:
+        """Inject terminal metadata into environment variables."""
+        env = base_env.copy() if base_env is not None else {}
+        env["CAO_TERMINAL_ID"] = terminal_id
+        env["CAO_SESSION_NAME"] = session_name
+
+        if provider:
+            env["CAO_PROVIDER"] = provider
+        else:
+            env.pop("CAO_PROVIDER", None)
+
+        if agent_profile:
+            env["CAO_AGENT_PROFILE"] = agent_profile
+        else:
+            env.pop("CAO_AGENT_PROFILE", None)
+
+        if working_directory:
+            env["CAO_WORKING_DIRECTORY"] = working_directory
+        else:
+            env.pop("CAO_WORKING_DIRECTORY", None)
+
+        return env
 
     def send_keys(self, session_name: str, window_name: str, keys: str):
         """Send keys to window with chunking for long messages."""

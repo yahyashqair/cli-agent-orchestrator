@@ -5,12 +5,7 @@ provider: codex_cli
 mcpServers:
   cao-mcp-server:
     type: stdio
-    command: uv
-    args:
-      - run
-      - --directory
-      - /home/yahyashqair/anonDev/cli-agent-orchestrator
-      - cao-mcp-server
+    # Command auto-detected at runtime
 ---
 
 # CODE REVIEWER AGENT

@@ -83,6 +83,22 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
         )
         response.raise_for_status()
         terminal = response.json()
+    elif session_name := os.environ.get("CAO_SESSION_NAME"):
+        # Fallback for environments that pass session metadata but not terminal IDs
+        selected_provider = profile_provider or os.environ.get("CAO_PROVIDER") or provider
+        working_directory = os.environ.get("CAO_WORKING_DIRECTORY")
+
+        params = {"provider": selected_provider, "agent_profile": agent_profile}
+        if working_directory:
+            params["working_directory"] = working_directory
+
+        response = requests.post(
+            f"{API_BASE_URL}/sessions/{session_name}/terminals",
+            params=params,
+        )
+        response.raise_for_status()
+        terminal = response.json()
+        provider = selected_provider
     else:
         # Create new session with terminal - use current working directory
         session_name = generate_session_name()
@@ -238,9 +254,54 @@ async def handoff(
         )
 
     except Exception as e:
-        return HandoffResult(
-            success=False, message=f"Handoff failed: {str(e)}", output=None, terminal_id=None
-        )
+        # Enhanced error handling with specific error codes
+        error_msg = str(e)
+        
+        if "Agent profile" in error_msg and "not installed" in error_msg:
+            return HandoffResult(
+                success=False,
+                message=f"Failed to create terminal with agent '{agent_profile}'",
+                error_code="AGENT_NOT_INSTALLED",
+                suggestion=f"Run 'cao install {agent_profile}' to install this agent profile",
+                debug_info={
+                    "agent_profile": agent_profile,
+                    "error": error_msg,
+                }
+            )
+        elif "Connection refused" in error_msg:
+            return HandoffResult(
+                success=False,
+                message="Cannot connect to CAO server",
+                error_code="SERVER_NOT_RUNNING",
+                suggestion="Start the server with 'cao-server' in another terminal",
+                debug_info={
+                    "api_url": API_BASE_URL,
+                    "error": error_msg,
+                }
+            )
+        elif "Session" in error_msg and "not found" in error_msg:
+            return HandoffResult(
+                success=False,
+                message="Parent session not found",
+                error_code="SESSION_NOT_FOUND",
+                suggestion="Your terminal session may have been closed. Try launching a new agent.",
+                debug_info={
+                    "agent_profile": agent_profile,
+                    "error": error_msg,
+                }
+            )
+        else:
+            return HandoffResult(
+                success=False,
+                message=f"Handoff failed: {error_msg}",
+                error_code="UNKNOWN_ERROR",
+                suggestion="Check logs with: tail -f ~/.aws/cli-agent-orchestrator/logs/cao-server.log",
+                debug_info={
+                    "agent_profile": agent_profile,
+                    "exception_type": type(e).__name__,
+                    "error": error_msg,
+                }
+            )
 
 
 @mcp.tool()
@@ -280,7 +341,46 @@ async def assign(
         }
 
     except Exception as e:
-        return {"success": False, "terminal_id": None, "message": f"Assignment failed: {str(e)}"}
+        # Enhanced error handling for assign
+        error_msg = str(e)
+        
+        if "Agent profile" in error_msg and "not installed" in error_msg:
+            return {
+                "success": False,
+                "terminal_id": None,
+                "message": f"Failed to create terminal with agent '{agent_profile}'",
+                "error_code": "AGENT_NOT_INSTALLED",
+                "suggestion": f"Run 'cao install {agent_profile}' to install this agent profile",
+                "debug_info": {
+                    "agent_profile": agent_profile,
+                    "error": error_msg,
+                }
+            }
+        elif "Connection refused" in error_msg:
+            return {
+                "success": False,
+                "terminal_id": None,
+                "message": "Cannot connect to CAO server",
+                "error_code": "SERVER_NOT_RUNNING",
+                "suggestion": "Start the server with 'cao-server' in another terminal",
+                "debug_info": {
+                    "api_url": API_BASE_URL,
+                    "error": error_msg,
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "terminal_id": None,
+                "message": f"Assignment failed: {error_msg}",
+                "error_code": "UNKNOWN_ERROR",
+                "suggestion": "Check logs with: tail -f ~/.aws/cli-agent-orchestrator/logs/cao-server.log",
+                "debug_info": {
+                    "agent_profile": agent_profile,
+                    "exception_type": type(e).__name__,
+                    "error": error_msg,
+                }
+            }
 
 
 @mcp.tool()
@@ -302,8 +402,43 @@ async def send_message(
     """
     try:
         return _send_to_inbox(receiver_id, message)
+    except ValueError as e:
+        # Specific error for CAO_TERMINAL_ID not set
+        if "CAO_TERMINAL_ID not set" in str(e):
+            return {
+                "success": False,
+                "error": str(e),
+                "error_code": "TERMINAL_ID_NOT_SET",
+                "suggestion": "send_message() can only be used from within a CAO terminal. "
+                           "Make sure you're calling this from an agent terminal.",
+                "debug_info": {
+                    "receiver_id": receiver_id,
+                    "error": str(e),
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "error": str(e),
+                "error_code": "VALIDATION_ERROR",
+                "suggestion": "Check that the receiver_id is a valid terminal ID.",
+                "debug_info": {
+                    "receiver_id": receiver_id,
+                    "error": str(e),
+                }
+            }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "error_code": "UNKNOWN_ERROR",
+            "suggestion": "Check logs with: tail -f ~/.aws/cli-agent-orchestrator/logs/cao-server.log",
+            "debug_info": {
+                "receiver_id": receiver_id,
+                "exception_type": type(e).__name__,
+                "error": str(e),
+            }
+        }
 
 
 def main():

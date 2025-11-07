@@ -20,6 +20,8 @@ ST_PATTERN = re.compile(r"\x1b\][^\x1b]*\x1b\\")
 SINGLE_ESCAPE_PATTERN = re.compile(r"\x1b[@-Z\\-_]")
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
+PROVIDER_NAME = "copilot_cli"
+
 # Copilot-specific markers
 PROMPT_PATTERN = re.compile(r"(?:^|\n)(?:copilot|you)\s*>\s*$", re.IGNORECASE)
 ASSISTANT_PATTERN = re.compile(
@@ -88,7 +90,14 @@ class CopilotCliProvider(BaseProvider):
         if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
             raise TimeoutError("Shell initialization timed out after 10 seconds")
 
-        runtime_env = {"CAO_TERMINAL_ID": self.terminal_id, "COPILOT_ALLOW_ALL": "true"}
+        runtime_env = {
+            "CAO_TERMINAL_ID": self.terminal_id,
+            "CAO_SESSION_NAME": self.session_name,
+            "CAO_PROVIDER": PROVIDER_NAME,
+            "COPILOT_ALLOW_ALL": "true",
+        }
+        if self.working_directory:
+            runtime_env["CAO_WORKING_DIRECTORY"] = self.working_directory
         runtime_env.update(self._env_exports)
 
         for key, value in runtime_env.items():

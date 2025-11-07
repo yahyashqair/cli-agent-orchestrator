@@ -8,18 +8,27 @@ import pytest
 from cli_agent_orchestrator.mcp_server.server import _create_terminal
 
 
+META_ENV_VARS = [
+    "CAO_TERMINAL_ID",
+    "CAO_SESSION_NAME",
+    "CAO_PROVIDER",
+    "CAO_WORKING_DIRECTORY",
+]
+
+
 @pytest.fixture(autouse=True)
 def clear_env():
-    original = os.environ.get("CAO_TERMINAL_ID")
+    originals = {key: os.environ.get(key) for key in META_ENV_VARS}
     try:
-        if "CAO_TERMINAL_ID" in os.environ:
-            del os.environ["CAO_TERMINAL_ID"]
+        for key in META_ENV_VARS:
+            os.environ.pop(key, None)
         yield
     finally:
-        if original is not None:
-            os.environ["CAO_TERMINAL_ID"] = original
-        elif "CAO_TERMINAL_ID" in os.environ:
-            del os.environ["CAO_TERMINAL_ID"]
+        for key, value in originals.items():
+            if value is not None:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
 
 
 @patch("cli_agent_orchestrator.mcp_server.server.requests.post")
@@ -99,3 +108,34 @@ def test_create_terminal_errors_when_profile_missing(mock_load):
     """Raise a helpful error when the agent profile is not installed."""
     with pytest.raises(RuntimeError, match="Agent profile 'unknown_agent' is not installed"):
         _create_terminal("unknown_agent")
+
+
+@patch("cli_agent_orchestrator.mcp_server.server.requests.post")
+@patch("cli_agent_orchestrator.mcp_server.server.load_agent_profile")
+def test_create_terminal_uses_session_env_when_terminal_missing(mock_load, mock_post):
+    """Fallback to session metadata when terminal ID is not available."""
+    profile = MagicMock()
+    profile.provider = None
+    mock_load.return_value = profile
+
+    os.environ["CAO_SESSION_NAME"] = "cao-test-session"
+    os.environ["CAO_PROVIDER"] = "codex_cli"
+    os.environ["CAO_WORKING_DIRECTORY"] = "/tmp/work"
+
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {"id": "worker222"}
+
+    terminal_id, provider = _create_terminal("legacy_agent")
+
+    assert terminal_id == "worker222"
+    assert provider == "codex_cli"
+
+    call_args = mock_post.call_args
+    assert call_args[0][0] in [
+        "http://localhost:9889/sessions/cao-test-session/terminals",
+        "http://127.0.0.1:9889/sessions/cao-test-session/terminals",
+    ]
+    params = call_args[1]["params"]
+    assert params["agent_profile"] == "legacy_agent"
+    assert params["provider"] == "codex_cli"
+    assert params["working_directory"] == "/tmp/work"

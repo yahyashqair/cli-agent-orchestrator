@@ -25,6 +25,8 @@ CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 # Status indicators used by Codex CLI
 ESC_TO_INTERRUPT = "esc to interrupt"
 WORKING_TOKEN = "working"
+PROVIDER_NAME = "codex_cli"
+
 APPROVAL_TOKENS = (
     "allow codex to run",
     "requires your approval",
@@ -84,7 +86,13 @@ class CodexCliProvider(BaseProvider):
             self._ensure_mcp_servers_registered()
 
         # Export environment variables so Codex inherits terminal metadata and MCP settings.
-        runtime_env = {"CAO_TERMINAL_ID": self.terminal_id}
+        runtime_env = {
+            "CAO_TERMINAL_ID": self.terminal_id,
+            "CAO_SESSION_NAME": self.session_name,
+            "CAO_PROVIDER": PROVIDER_NAME,
+        }
+        if self.working_directory:
+            runtime_env["CAO_WORKING_DIRECTORY"] = self.working_directory
         runtime_env.update(self._env_exports)
 
         for key, value in runtime_env.items():
@@ -150,8 +158,14 @@ class CodexCliProvider(BaseProvider):
 
             args = server.get("args") or []
             server_env = (server.get("env") or {}).copy()
-            # Ensure downstream tools know which terminal initiated the MCP call.
-            server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
+            # Ensure downstream tools inherit terminal metadata for session reuse.
+            server_env["CAO_TERMINAL_ID"] = self.terminal_id
+            server_env["CAO_SESSION_NAME"] = self.session_name
+            server_env["CAO_PROVIDER"] = PROVIDER_NAME
+            if self.working_directory:
+                server_env["CAO_WORKING_DIRECTORY"] = self.working_directory
+            else:
+                server_env.pop("CAO_WORKING_DIRECTORY", None)
 
             cmd = ["codex", "mcp", "add"]
 

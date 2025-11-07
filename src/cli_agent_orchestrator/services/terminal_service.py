@@ -58,13 +58,25 @@ def create_terminal(
                 raise ValueError(f"Session '{session_name}' already exists")
 
             # Create new tmux session with this terminal as the initial window
-            tmux_client.create_session(session_name, window_name, terminal_id, working_directory)
+            tmux_client.create_session(
+                session_name,
+                window_name,
+                terminal_id,
+                working_directory,
+                provider,
+                agent_profile,
+            )
         else:
             # Add window to existing session
             if not tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' not found")
             window_name = tmux_client.create_window(
-                session_name, window_name, terminal_id, working_directory
+                session_name,
+                window_name,
+                terminal_id,
+                working_directory,
+                provider,
+                agent_profile,
             )
 
         # Save terminal metadata to database

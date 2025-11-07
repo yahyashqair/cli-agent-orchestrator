@@ -7,6 +7,7 @@ from cli_agent_orchestrator.cli.commands.init import init
 from cli_agent_orchestrator.cli.commands.install import install
 from cli_agent_orchestrator.cli.commands.launch import launch
 from cli_agent_orchestrator.cli.commands.shutdown import shutdown
+from cli_agent_orchestrator.cli.commands.validate import validate
 
 
 @click.group()
@@ -20,6 +21,7 @@ cli.add_command(init)
 cli.add_command(install)
 cli.add_command(shutdown)
 cli.add_command(flow)
+cli.add_command(validate)
 
 
 if __name__ == "__main__":
