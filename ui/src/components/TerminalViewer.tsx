@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail } from 'lucide-react'
+import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail, ExternalLink } from 'lucide-react'
 import { api } from '../api/client'
 import Convert from 'ansi-to-html'
 import InboxViewer from './InboxViewer'
@@ -176,6 +176,21 @@ export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }
     },
   })
 
+  const openTerminalMutation = useMutation({
+    mutationFn: () => api.openTerminal(terminalId),
+    onSuccess: (data) => {
+      if (data.success) {
+        console.log(`Opened terminal: ${data.terminal_emulator} (session: ${data.session_name})`)
+      } else {
+        alert(`Could not open terminal automatically.\n\nPlease run this command in your terminal:\n${data.attach_command}`)
+      }
+    },
+    onError: (error) => {
+      console.error('Failed to open terminal:', error)
+      alert('Failed to open terminal. Please check the console for details.')
+    },
+  })
+
   useEffect(() => {
     if (!terminalId) return
 
@@ -323,6 +338,10 @@ export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }
     }
   }
 
+  const handleOpenTerminal = () => {
+    openTerminalMutation.mutate()
+  }
+
   const displayHtml = isCleared ? CLEARED_MESSAGE : renderedHtml || (isFetchingOutput ? 'Loading…' : EMPTY_MESSAGE)
 
   return (
@@ -361,6 +380,13 @@ export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }
             disabled={!rawOutputRef.current}
           >
             {copyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={handleOpenTerminal}
+            title="Open in terminal (attach to tmux session)"
+          >
+            <ExternalLink size={14} />
           </button>
           <button className="btn btn-sm btn-secondary" onClick={handleExit} title="Send exit command">
             Exit

@@ -7,6 +7,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$REPO_ROOT/.logs"
+BACKEND_PID_FILE="$LOG_DIR/cao-server.pid"
+FRONTEND_PID_FILE="$LOG_DIR/ui-dev.pid"
 
 mkdir -p "$LOG_DIR"
 
@@ -18,7 +20,31 @@ FRONTEND_CMD_PATTERN="npm --prefix ui run dev"
 stop_service() {
     local label="$1"
     local pattern="$2"
+    local pid_file="$3"
     local pids=""
+
+    if [[ -f "$pid_file" ]]; then
+        local pid
+        pid="$(cat "$pid_file")"
+        if [[ -n "${pid// }" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+            echo "Stopping $label via PID file (PID: $pid)"
+            kill "$pid" >/dev/null 2>&1 || true
+            for _ in {1..5}; do
+                if ! kill -0 "$pid" >/dev/null 2>&1; then
+                    echo "$label stopped."
+                    rm -f "$pid_file"
+                    return 0
+                fi
+                sleep 1
+            done
+            echo "$label did not exit in time; sending SIGKILL."
+            kill -9 "$pid" >/dev/null 2>&1 || true
+            rm -f "$pid_file"
+            return 0
+        else
+            rm -f "$pid_file"
+        fi
+    fi
 
     if pids=$(pgrep -f "$pattern"); then
         echo "Stopping $label (PID(s): $pids)"
@@ -45,7 +71,7 @@ start_backend() {
         >> "$LOG_DIR/cao-server.log" 2>&1 &
     local pid=$!
     echo "$BACKEND_LABEL started (PID: $pid)"
-    echo $pid > "$LOG_DIR/cao-server.pid"
+    echo $pid > "$BACKEND_PID_FILE"
 }
 
 start_frontend() {
@@ -54,7 +80,7 @@ start_frontend() {
         >> "$LOG_DIR/ui-dev.log" 2>&1 &
     local pid=$!
     echo "$FRONTEND_LABEL started (PID: $pid)"
-    echo $pid > "$LOG_DIR/ui-dev.pid"
+    echo $pid > "$FRONTEND_PID_FILE"
 }
 
 require_commands() {
@@ -73,8 +99,8 @@ require_commands() {
 
 require_commands uv npm pgrep kill nohup
 
-stop_service "$BACKEND_LABEL" "$BACKEND_CMD_PATTERN"
-stop_service "$FRONTEND_LABEL" "$FRONTEND_CMD_PATTERN"
+stop_service "$BACKEND_LABEL" "$BACKEND_CMD_PATTERN" "$BACKEND_PID_FILE"
+stop_service "$FRONTEND_LABEL" "$FRONTEND_CMD_PATTERN" "$FRONTEND_PID_FILE"
 
 start_backend
 start_frontend

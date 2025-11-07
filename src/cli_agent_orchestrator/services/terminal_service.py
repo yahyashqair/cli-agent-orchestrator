@@ -39,25 +39,36 @@ def create_terminal(
     full_permissions: bool = False,
 ) -> Terminal:
     """Create terminal, optionally creating new session with it."""
+    logger.info(
+        f"create_terminal called: provider={provider}, agent_profile={agent_profile}, "
+        f"session_name={session_name}, new_session={new_session}, "
+        f"working_directory={working_directory}, full_permissions={full_permissions}"
+    )
     try:
         terminal_id = generate_terminal_id()
+        logger.debug(f"Generated terminal_id: {terminal_id}")
 
         # Generate session name if not provided
         if not session_name:
             session_name = generate_session_name()
+            logger.debug(f"Generated session_name: {session_name}")
 
         window_name = generate_window_name(agent_profile)
+        logger.debug(f"Generated window_name: {window_name}")
 
         if new_session:
             # Apply SESSION_PREFIX if not already present
             if not session_name.startswith(SESSION_PREFIX):
                 session_name = f"{SESSION_PREFIX}{session_name}"
+                logger.debug(f"Added prefix to session_name: {session_name}")
 
             # Check if session already exists
+            logger.debug(f"Checking if session exists: {session_name}")
             if tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' already exists")
 
             # Create new tmux session with this terminal as the initial window
+            logger.info(f"Creating new tmux session: {session_name}")
             tmux_client.create_session(
                 session_name,
                 window_name,
@@ -66,10 +77,13 @@ def create_terminal(
                 provider,
                 agent_profile,
             )
+            logger.info(f"Tmux session created: {session_name}")
         else:
             # Add window to existing session
+            logger.debug(f"Checking if session exists: {session_name}")
             if not tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' not found")
+            logger.info(f"Creating window in existing session: {session_name}")
             window_name = tmux_client.create_window(
                 session_name,
                 window_name,
@@ -78,8 +92,10 @@ def create_terminal(
                 provider,
                 agent_profile,
             )
+            logger.info(f"Window created: {window_name}")
 
         # Save terminal metadata to database
+        logger.debug("Saving terminal metadata to database")
         db_create_terminal(
             terminal_id,
             session_name,
@@ -89,8 +105,10 @@ def create_terminal(
             working_directory,
             full_permissions,
         )
+        logger.debug("Terminal metadata saved")
 
         # Initialize provider
+        logger.info(f"Creating provider instance: {provider}")
         provider_instance = provider_manager.create_provider(
             provider,
             terminal_id,
@@ -100,12 +118,17 @@ def create_terminal(
             working_directory,
             full_permissions=full_permissions,
         )
+        logger.info(f"Initializing provider: {provider}")
         provider_instance.initialize()
+        logger.info(f"Provider initialized: {provider}")
 
         # Create log file and start pipe-pane
         log_path = TERMINAL_LOG_DIR / f"{terminal_id}.log"
+        logger.debug(f"Creating log file: {log_path}")
         log_path.touch()  # Ensure file exists before watching
+        logger.debug("Starting pipe-pane")
         tmux_client.pipe_pane(session_name, window_name, str(log_path))
+        logger.debug("Pipe-pane started")
 
         terminal = Terminal(
             id=terminal_id,
@@ -122,12 +145,13 @@ def create_terminal(
         return terminal
 
     except Exception as e:
-        logger.error(f"Failed to create terminal: {e}")
+        logger.error(f"Failed to create terminal: {e}", exc_info=True)
         if new_session:
             try:
+                logger.debug(f"Attempting to clean up session: {session_name}")
                 tmux_client.kill_session(session_name)
-            except:
-                pass
+            except Exception as cleanup_err:
+                logger.error(f"Failed to cleanup session: {cleanup_err}")
         raise
 
 

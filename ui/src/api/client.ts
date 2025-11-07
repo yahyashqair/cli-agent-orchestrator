@@ -105,6 +105,16 @@ export const api = {
     return data;
   },
 
+  openTerminal: async (terminalId: string) => {
+    const { data } = await axios.post<{
+      success: boolean;
+      session_name: string;
+      attach_command: string;
+      terminal_emulator: string | null;
+    }>(`${API_BASE}/terminals/${terminalId}/open`);
+    return data;
+  },
+
   // Inbox
   sendMessage: async (receiverId: string, senderId: string, message: string) => {
     const { data } = await axios.post(

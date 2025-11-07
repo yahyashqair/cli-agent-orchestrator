@@ -119,7 +119,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://127.0.0.1:3004"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -140,6 +140,11 @@ async def create_session(
     full_permissions: bool = Query(default=False),
 ) -> Terminal:
     """Create a new session with exactly one terminal."""
+    logger.info(
+        f"Creating session: provider={provider}, agent_profile={agent_profile}, "
+        f"session_name={session_name}, working_directory={working_directory}, "
+        f"full_permissions={full_permissions}"
+    )
     try:
         result = terminal_service.create_terminal(
             provider=provider,
@@ -149,11 +154,14 @@ async def create_session(
             working_directory=working_directory,
             full_permissions=full_permissions,
         )
+        logger.info(f"Session created successfully: {result.id}")
         return result
 
     except ValueError as e:
+        logger.error(f"ValueError creating session: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        logger.error(f"Exception creating session: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create session: {str(e)}",
@@ -317,6 +325,62 @@ async def delete_terminal(terminal_id: TerminalId) -> Dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete terminal: {str(e)}",
+        )
+
+
+@app.post("/terminals/{terminal_id}/open")
+async def open_terminal_in_tmux(terminal_id: TerminalId) -> Dict:
+    """Open Linux terminal and attach to tmux session."""
+    try:
+        terminal = terminal_service.get_terminal(terminal_id)
+        session_name = terminal["session_name"]
+
+        # Try to open terminal emulator with tmux attach command
+        import subprocess
+        import shutil
+
+        # Command to attach to tmux session
+        attach_command = f"tmux attach-session -t {session_name}"
+
+        # Try different terminal emulators in order of preference
+        terminal_emulators = [
+            ("gnome-terminal", ["gnome-terminal", "--", "bash", "-c", f"{attach_command}; exec bash"]),
+            ("konsole", ["konsole", "-e", f"{attach_command}"]),
+            ("xfce4-terminal", ["xfce4-terminal", "-e", f"{attach_command}"]),
+            ("xterm", ["xterm", "-e", f"{attach_command}"]),
+            ("alacritty", ["alacritty", "-e", "bash", "-c", f"{attach_command}; exec bash"]),
+            ("kitty", ["kitty", "bash", "-c", f"{attach_command}; exec bash"]),
+            ("terminator", ["terminator", "-e", f"{attach_command}"]),
+        ]
+
+        opened = False
+        used_emulator = None
+
+        for emulator_name, command in terminal_emulators:
+            if shutil.which(emulator_name):
+                try:
+                    subprocess.Popen(command, start_new_session=True)
+                    opened = True
+                    used_emulator = emulator_name
+                    logger.info(f"Opened terminal '{emulator_name}' for session {session_name}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to open {emulator_name}: {e}")
+                    continue
+
+        return {
+            "success": opened,
+            "session_name": session_name,
+            "attach_command": attach_command,
+            "terminal_emulator": used_emulator,
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to open terminal: {str(e)}",
         )
 
 

@@ -1,9 +1,11 @@
 .terminal-viewer {
   display: flex;
   flex-direction: column;
-  height: 100%;
   gap: 0.75rem;
   color: var(--text-primary);
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .terminal-viewer-header {
@@ -95,6 +97,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  min-height: 0;
 }
 
 .terminal-output-container {
@@ -106,6 +109,7 @@
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.6)), #05060b;
   border: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  min-height: 0;
 }
 
 .terminal-output-controls {
@@ -144,6 +148,7 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+  min-height: 0;
 }
 
 .terminal-output span {

@@ -32,8 +32,15 @@ class TmuxClient:
         agent_profile: str = None,
     ) -> str:
         """Create detached tmux session with initial window and return window name."""
+        logger.info(
+            f"create_session: session_name={session_name}, window_name={window_name}, "
+            f"terminal_id={terminal_id}, working_directory={working_directory}, "
+            f"provider={provider}, agent_profile={agent_profile}"
+        )
         try:
+            logger.debug("Copying environment variables")
             environment = os.environ.copy()
+            logger.debug("Preparing environment with CAO_ variables")
             environment = self._prepare_environment(
                 environment,
                 terminal_id,
@@ -52,15 +59,19 @@ class TmuxClient:
 
             if working_directory:
                 kwargs["start_directory"] = working_directory
+                logger.debug(f"Set start_directory to: {working_directory}")
 
+            logger.info(f"Calling libtmux.Server.new_session with kwargs: {list(kwargs.keys())}")
             session = self.server.new_session(**kwargs)
             logger.info(
                 f"Created tmux session: {session_name} with window: {window_name}"
                 + (f" in directory: {working_directory}" if working_directory else "")
             )
-            return session.windows[0].name
+            window_name_result = session.windows[0].name
+            logger.debug(f"Actual window name from tmux: {window_name_result}")
+            return window_name_result
         except Exception as e:
-            logger.error(f"Failed to create session {session_name}: {e}")
+            logger.error(f"Failed to create session {session_name}: {e}", exc_info=True)
             raise
 
     def create_window(

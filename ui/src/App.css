@@ -65,7 +65,7 @@
 .app {
   width: 100%;
   max-width: 1600px;
-  min-height: calc(100vh - clamp(2rem, 4vw, 4rem));
+  height: calc(100vh - clamp(2rem, 4vw, 4rem));
   display: flex;
   flex-direction: column;
   border-radius: 32px;
@@ -169,6 +169,7 @@
   gap: 1.5rem;
   padding: 1.5rem clamp(1.25rem, 3vw, 3rem) 2.25rem;
   overflow: hidden;
+  min-height: 0;
 }
 
 .flows-view {
@@ -192,6 +193,7 @@
   flex: 1;
   gap: 1.25rem;
   min-width: 0;
+  min-height: 0;
 }
 
 .session-column {
@@ -202,6 +204,7 @@
   padding: 1.25rem;
   border-radius: 24px;
   overflow: hidden;
+  min-height: 0;
 }
 
 .terminal-column {
@@ -211,6 +214,7 @@
   padding: 1.25rem;
   border-radius: 24px;
   overflow: hidden;
+  min-height: 0;
 }
 
 .terminal-column > * {
