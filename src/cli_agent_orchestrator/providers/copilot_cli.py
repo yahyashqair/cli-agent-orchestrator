@@ -81,14 +81,19 @@ class CopilotCliProvider(BaseProvider):
         if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
             raise TimeoutError("Shell initialization timed out after 10 seconds")
 
-        runtime_env = {"CAO_TERMINAL_ID": self.terminal_id}
+        runtime_env = {"CAO_TERMINAL_ID": self.terminal_id, "COPILOT_ALLOW_ALL": "true"}
         runtime_env.update(self._env_exports)
 
         for key, value in runtime_env.items():
             quoted = shlex.quote(str(value))
             tmux_client.send_keys(self.session_name, self.window_name, f"export {key}={quoted}")
 
-        command = "copilot chat"
+        # Build command with directory access
+        command_parts = ["copilot"]
+        if self.working_directory:
+            command_parts.extend(["--add-dir", self.working_directory])
+        command = " ".join(shlex.quote(part) for part in command_parts)
+        
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
         if not wait_until_status(self, TerminalStatus.IDLE, timeout=45.0):
