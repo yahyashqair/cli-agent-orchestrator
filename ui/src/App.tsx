@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api/client'
 import Dashboard, { AgentStatusPanel } from './components/Dashboard'
@@ -76,9 +76,22 @@ function App() {
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [hasUserSelectedTheme])
 
+  const withAppShell = (children: ReactNode) => (
+    <div className="app-shell">
+      <div className="app-background" aria-hidden="true">
+        <span className="orb orb-primary" />
+        <span className="orb orb-accent" />
+        <span className="orb orb-contrast" />
+      </div>
+      <div className="app-surface">
+        <div className="app">{children}</div>
+      </div>
+    </div>
+  )
+
   if (!sessions) {
-    return (
-      <div className="app">
+    return withAppShell(
+      <>
         <header className="app-header">
           <div className="app-title">
             <img
@@ -95,7 +108,7 @@ function App() {
           </div>
         </header>
         <div className="loading-state">Loading sessions…</div>
-      </div>
+      </>
     )
   }
 
@@ -109,8 +122,8 @@ function App() {
     setSelectedTerminalId((prev) => (prev === id ? prev : id))
   }
 
-  return (
-    <div className="app">
+  return withAppShell(
+    <>
       <header className="app-header">
         <div className="app-title">
           <img
@@ -134,7 +147,7 @@ function App() {
       </header>
 
       <div className="app-navigation">
-        <nav className="nav-tabs">
+        <nav className="nav-tabs" aria-label="Primary">
           <button
             className={`nav-tab ${activeView === 'sessions' ? 'nav-tab-active' : ''}`}
             onClick={() => setActiveView('sessions')}
@@ -163,14 +176,14 @@ function App() {
       <div className="app-content">
         {activeView === 'sessions' ? (
           <>
-            <aside className="sidebar">
+            <aside className="sidebar glass-panel">
               <Dashboard sessions={sessions} />
               <AgentStatusPanel sessions={sessions} />
             </aside>
 
             <main className="main-content">
               <div className="session-terminal-layout">
-                <div className="terminal-column">
+                <div className="terminal-column glass-panel">
                   {selectedTerminalId ? (
                     <TerminalViewer
                       terminalId={selectedTerminalId}
@@ -178,13 +191,13 @@ function App() {
                       onClose={() => setSelectedTerminalId(null)}
                     />
                   ) : (
-                    <div className="empty-state">
+                    <div className="empty-state frosted-card">
                       <h2>Select a terminal to view</h2>
                       <p>Choose a terminal from the sessions list to monitor its output</p>
                     </div>
                   )}
                 </div>
-                <div className="session-column">
+                <div className="session-column glass-panel">
                   <SessionList
                     sessions={sessions}
                     selectedTerminalId={selectedTerminalId}
@@ -195,7 +208,7 @@ function App() {
             </main>
           </>
         ) : (
-          <main className="main-content flows-view">
+          <main className="main-content flows-view glass-panel">
             <FlowViewer onCreateFlow={() => setShowFlowEditor(true)} />
           </main>
         )}
@@ -209,7 +222,7 @@ function App() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }
 

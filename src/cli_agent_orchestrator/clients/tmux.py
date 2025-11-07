@@ -202,6 +202,23 @@ class TmuxClient:
             logger.error(f"Failed to kill session {session_name}: {e}")
             return False
 
+    def kill_window(self, session_name: str, window_name: str) -> bool:
+        """Kill tmux window."""
+        try:
+            session = self.server.sessions.get(session_name=session_name)
+            if not session:
+                raise ValueError(f"Session '{session_name}' not found")
+
+            window = session.windows.get(window_name=window_name)
+            if window:
+                window.kill_window()
+                logger.info(f"Killed tmux window: {window_name} in session: {session_name}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to kill window {window_name} in session {session_name}: {e}")
+            return False
+
     def session_exists(self, session_name: str) -> bool:
         """Check if session exists."""
         try:

@@ -157,7 +157,7 @@ export default function SessionList({
   if (sortedSessions.length === 0) {
     return (
       <div className="session-list">
-        <div className="session-list-empty">
+        <div className="session-list-empty frosted-card">
           <p>No active sessions</p>
           <p className="text-muted">Launch an agent to get started</p>
         </div>
@@ -194,7 +194,7 @@ export default function SessionList({
         return (
           <div key={session.name} className="session-item">
             <div
-              className="session-header"
+              className="session-header frosted-card"
               onClick={() => toggleSession(session.name)}
             >
               <div className="session-header-left">
@@ -216,7 +216,7 @@ export default function SessionList({
                 {(session.terminals || []).map(terminal => (
                   <div
                     key={terminal.id}
-                    className={`terminal-item ${
+                    className={`terminal-item glass-panel ${
                       selectedTerminalId === terminal.id ? 'selected' : ''
                     }`}
                     onClick={() => onTerminalSelect(terminal.id)}

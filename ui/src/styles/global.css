@@ -21,6 +21,13 @@
   --idle: #6366f1;
   --processing: #8b5cf6;
   --completed: #10b981;
+  --glass-panel: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  --glass-panel-strong: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
+  --glass-border: color-mix(in srgb, var(--border) 50%, transparent);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-shadow-color: color-mix(in srgb, var(--bg-primary) 60%, transparent);
+  --glass-shadow: 0 35px 60px var(--glass-shadow-color);
+  --glow-primary: 0 0 35px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 :root.theme-dark {
@@ -283,6 +290,21 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--processing) 10%, transparent) 0%, transparent 40%),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--glass-border) 30%, transparent) 0px, transparent 2px, transparent 6px, color-mix(in srgb, var(--glass-border) 10%, transparent) 8px);
+  opacity: 0.25;
+  pointer-events: none;
 }
 
 code, pre {
@@ -291,6 +313,61 @@ code, pre {
 
 #root {
   min-height: 100vh;
+  position: relative;
+}
+
+.glass-panel {
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.frosted-card {
+  background: var(--glass-panel-strong);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+.glow-ring {
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.glow-ring::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  border-radius: inherit;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 35%, transparent) 0%, transparent 65%);
+  opacity: 0.25;
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+.glass-divider {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--glass-border);
+  margin: 1.25rem 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Scrollbar styling */
@@ -300,12 +377,12 @@ code, pre {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--glass-border) 80%, transparent);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

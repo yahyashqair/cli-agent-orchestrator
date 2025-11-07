@@ -46,37 +46,37 @@ export default function Dashboard({ sessions }: DashboardProps) {
       <h2 className="dashboard-title">Overview</h2>
 
       <div className="stats-grid">
-        <div className="stat-card">
+        <div className="stat-card frosted-card">
           <div className="stat-value">{stats.totalSessions}</div>
           <div className="stat-label">Sessions</div>
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card frosted-card">
           <div className="stat-value">{stats.totalTerminals}</div>
           <div className="stat-label">Total Agents</div>
         </div>
 
-        <div className="stat-card stat-active">
+        <div className="stat-card stat-active frosted-card">
           <div className="stat-value">{stats.activeTerminals}</div>
           <div className="stat-label">Active</div>
         </div>
 
-        <div className="stat-card stat-idle">
+        <div className="stat-card stat-idle frosted-card">
           <div className="stat-value">{stats.idleTerminals}</div>
           <div className="stat-label">Idle</div>
         </div>
 
-        <div className="stat-card stat-flows">
+        <div className="stat-card stat-flows frosted-card">
           <div className="stat-value">{stats.totalFlows}</div>
           <div className="stat-label">Total Flows</div>
         </div>
 
-        <div className="stat-card stat-enabled-flows">
+        <div className="stat-card stat-enabled-flows frosted-card">
           <div className="stat-value">{stats.enabledFlows}</div>
           <div className="stat-label">Enabled Flows</div>
         </div>
 
-        <div className="stat-card stat-pending-messages">
+        <div className="stat-card stat-pending-messages frosted-card">
           <div className="stat-value">{pendingMessagesCount}</div>
           <div className="stat-label">Pending Messages</div>
         </div>
@@ -113,7 +113,7 @@ export function AgentStatusPanel({ sessions }: DashboardProps) {
   if (statusBreakdown.length === 0) {
     return (
       <section className="agent-status-panel">
-        <div className="status-breakdown">
+        <div className="status-breakdown frosted-card">
           <h3>Agent Status</h3>
           <p className="status-empty">No agents are running yet.</p>
         </div>
@@ -123,7 +123,7 @@ export function AgentStatusPanel({ sessions }: DashboardProps) {
 
   return (
     <section className="agent-status-panel">
-      <div className="status-breakdown">
+      <div className="status-breakdown frosted-card">
         <h3>Agent Status</h3>
         <div className="status-list">
           {statusBreakdown.map(({ status, count, percentage }) => (

@@ -2,16 +2,19 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-secondary);
+  gap: 0.75rem;
+  color: var(--text-primary);
 }
 
 .terminal-viewer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-tertiary);
+  padding: 1rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--glass-panel-strong) 85%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .terminal-viewer-title {
@@ -21,7 +24,7 @@
 }
 
 .terminal-viewer-title h3 {
-  font-size: 1.125rem;
+  font-size: 1.15rem;
   font-weight: 600;
   margin: 0;
 }
@@ -31,6 +34,8 @@
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 .terminal-viewer-actions {
@@ -40,47 +45,48 @@
 
 .terminal-tabs {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem 0;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  gap: 0.4rem;
+  padding: 0.4rem;
+  background: color-mix(in srgb, var(--glass-panel) 85%, transparent);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .terminal-tab {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
-.terminal-tab:hover {
+.terminal-tab:hover,
+.terminal-tab:focus-visible {
   color: var(--text-primary);
-  background: var(--bg-tertiary);
 }
 
 .terminal-tab-active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent-hover) 80%, transparent));
+  color: white;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25), var(--glow-primary);
 }
 
 .tab-badge {
-  background: var(--warning);
-  color: white;
-  padding: 0.125rem 0.375rem;
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 80%, transparent);
+  color: #fffdf7;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 600;
-  min-width: 1.25rem;
-  text-align: center;
 }
 
 .terminal-messages-container {
@@ -88,6 +94,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
 }
 
 .terminal-output-container {
@@ -95,78 +102,87 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-primary);
+  border-radius: 24px;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.6)), #05060b;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
 .terminal-output-controls {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
 }
 
 .auto-scroll-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  font-size: 0.85rem;
   cursor: pointer;
   user-select: none;
 }
 
 .auto-scroll-toggle input[type="checkbox"] {
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .terminal-output {
   flex: 1;
-  padding: 1rem;
+  padding: 1.25rem;
   margin: 0;
   overflow-y: auto;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: #d4d4d4;
-  background: #1e1e1e;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #f5f5f5;
+  background: transparent;
   white-space: pre-wrap;
   word-wrap: break-word;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
 }
 
-/* Support for ANSI color rendering */
 .terminal-output span {
   white-space: pre-wrap;
 }
 
-/* Ensure inline styles from ansi-to-html are applied */
 .terminal-output * {
   font-family: inherit;
 }
 
 .terminal-input-form {
   display: flex;
-  gap: 0.5rem;
-  padding: 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-secondary);
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.15));
+  border-radius: 0 0 24px 24px;
 }
 
 .terminal-input {
   flex: 1;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(3, 7, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .terminal-input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .terminal-input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 

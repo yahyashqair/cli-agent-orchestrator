@@ -1,196 +1,215 @@
 .dashboard {
-  padding: 1rem 1.25rem 1.25rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1rem 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .agent-status-panel {
-  padding: 1rem 1.25rem 1.25rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  flex-shrink: 0;
-  margin: 0;
+  padding: 0.75rem 0 0;
 }
 
 .dashboard-title {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .stats-grid {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(150px, 1fr);
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding: 0.25rem 0.25rem 0.5rem;
-  margin: 0 -0.25rem;
-}
-
-.stats-grid::-webkit-scrollbar {
-  height: 6px;
-}
-
-.stats-grid::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 9999px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
 }
 
 .stat-card {
-  background: var(--bg-tertiary);
-  padding: 0.75rem;
-  border-radius: 10px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-height: 94px;
+  position: relative;
+  padding: 1rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--glass-panel) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover::after {
+  opacity: 1;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 60%, transparent), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.stat-card.stat-active::before {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--processing) 60%, transparent), transparent);
+}
+
+.stat-card.stat-idle::before {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--idle) 60%, transparent), transparent);
+}
+
+.stat-card.stat-pending-messages::before {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--warning) 60%, transparent), transparent);
+}
+
+.stat-card.stat-flows::before,
+.stat-card.stat-enabled-flows::before {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 50%, transparent), transparent);
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: 600;
-  color: var(--text-primary);
   line-height: 1;
+  color: var(--text-primary);
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
-.stat-active {
-  border: 1px solid var(--processing);
-}
-
-.stat-active .stat-value {
+.stat-card.stat-active .stat-value {
   color: var(--processing);
 }
 
-.stat-idle {
-  border: 1px solid var(--idle);
-}
-
-.stat-idle .stat-value {
+.stat-card.stat-idle .stat-value {
   color: var(--idle);
 }
 
-.stat-pending-messages {
-  border: 1px solid var(--warning);
-}
-
-.stat-pending-messages .stat-value {
+.stat-card.stat-pending-messages .stat-value {
   color: var(--warning);
 }
 
-.stat-flows {
-  border: 1px solid var(--primary);
-}
-
-.stat-flows .stat-value {
-  color: var(--primary);
-}
-
-.stat-enabled-flows {
-  border: 1px solid var(--success);
-}
-
-.stat-enabled-flows .stat-value {
+.stat-card.stat-enabled-flows .stat-value {
   color: var(--success);
 }
 
-
 .status-breakdown {
-  background: var(--bg-tertiary);
-  border-radius: 10px;
-  padding: 0.75rem;
+  border-radius: 24px;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .status-breakdown h3 {
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--text-secondary);
   margin: 0;
 }
 
 .status-empty {
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  margin: 0.25rem 0 0;
+  margin: 0.3rem 0 0;
 }
 
 .status-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
 }
 
 .status-item {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 0.6rem 0.65rem;
+  background: color-mix(in srgb, var(--glass-panel) 90%, transparent);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .status-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8125rem;
+  font-size: 0.85rem;
 }
 
 .status-count {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .status-bar {
-  height: 3px;
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 9999px;
+  height: 5px;
+  background: color-mix(in srgb, var(--glass-border) 50%, transparent);
+  border-radius: 999px;
   overflow: hidden;
+  position: relative;
+}
+
+.status-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.15), transparent 60%);
+  mix-blend-mode: screen;
 }
 
 .status-bar-fill {
   height: 100%;
-  transition: width 0.3s ease;
   border-radius: inherit;
+  animation: statusBarPulse 2.5s ease-in-out infinite;
 }
 
 .status-bar-fill.status-idle {
-  background: var(--idle);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--idle) 70%, transparent), transparent);
 }
 
 .status-bar-fill.status-processing {
-  background: var(--processing);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--processing) 70%, transparent), transparent);
 }
 
 .status-bar-fill.status-completed {
-  background: var(--completed);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--completed) 70%, transparent), transparent);
 }
 
 .status-bar-fill.status-error {
-  background: var(--error);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--error) 70%, transparent), transparent);
 }
 
 .status-bar-fill.status-waiting_user_answer {
-  background: var(--warning);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 70%, transparent), transparent);
 }
 
 .status-bar-fill.status-unknown {
-  background: var(--text-muted);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 70%, transparent), transparent);
+}
+
+@keyframes statusBarPulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
 }

@@ -190,12 +190,18 @@ def delete_terminal(terminal_id: str) -> bool:
         # Get metadata before deletion
         metadata = get_terminal_metadata(terminal_id)
 
-        # Stop pipe-pane
         if metadata:
+            # Stop pipe-pane
             try:
                 tmux_client.stop_pipe_pane(metadata["tmux_session"], metadata["tmux_window"])
             except Exception as e:
                 logger.warning(f"Failed to stop pipe-pane for {terminal_id}: {e}")
+
+            # Kill the tmux window
+            try:
+                tmux_client.kill_window(metadata["tmux_session"], metadata["tmux_window"])
+            except Exception as e:
+                logger.warning(f"Failed to kill tmux window for {terminal_id}: {e}")
 
         # Existing cleanup
         provider_manager.cleanup_provider(terminal_id)

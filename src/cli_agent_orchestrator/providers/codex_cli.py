@@ -151,10 +151,7 @@ class CodexCliProvider(BaseProvider):
             args = server.get("args") or []
             server_env = (server.get("env") or {}).copy()
             # Ensure downstream tools know which terminal initiated the MCP call.
-            # Skip for cao-mcp-server as it needs the current terminal ID from runtime env,
-            # not the terminal ID from when it was registered.
-            if name != "cao-mcp-server":
-                server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
+            server_env.setdefault("CAO_TERMINAL_ID", self.terminal_id)
 
             cmd = ["codex", "mcp", "add"]
 
@@ -177,10 +174,30 @@ class CodexCliProvider(BaseProvider):
                     text=True,
                     env=base_env,
                 )
-                if result.returncode != 0 and "already exists" not in (result.stderr or ""):
-                    logger.warning(
-                        "Failed to register MCP server '%s': %s", name, result.stderr.strip()
-                    )
+                if result.returncode != 0:
+                    # If server already exists, remove it and try again
+                    if "already exists" in (result.stderr or ""):
+                        logger.debug(f"MCP server '{name}' already exists, removing and re-registering")
+                        remove_cmd = ["codex", "mcp", "remove", name]
+                        subprocess.run(remove_cmd, check=False, capture_output=True, env=base_env)
+                        # Try registering again
+                        result = subprocess.run(
+                            cmd,
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                            env=base_env,
+                        )
+                        if result.returncode != 0:
+                            logger.warning(
+                                "Failed to register MCP server '%s' after removal: %s",
+                                name,
+                                result.stderr.strip(),
+                            )
+                    else:
+                        logger.warning(
+                            "Failed to register MCP server '%s': %s", name, result.stderr.strip()
+                        )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Error registering MCP server '%s': %s", name, exc)
 
