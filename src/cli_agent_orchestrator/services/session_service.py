@@ -49,6 +49,7 @@ def list_sessions() -> List[Dict]:
                             "last_active": last_active.isoformat() if last_active else None,
                             "created_at": terminal.get("created_at"),
                             "updated_at": last_active.isoformat() if last_active else None,
+                            "full_permissions": bool(terminal.get("full_permissions", False)),
                         }
                     )
 

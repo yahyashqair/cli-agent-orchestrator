@@ -42,3 +42,23 @@ class TestClaudeCodeStatusDetection:
         provider = ClaudeCodeProvider("abcd1234", "session", "window")
 
         assert provider.get_status() == TerminalStatus.COMPLETED
+
+
+class TestClaudeCodeFullPermissionsFlag:
+    """Ensure full permission flag only impacts Claude when requested."""
+
+    def test_flag_not_included_by_default(self):
+        provider = ClaudeCodeProvider("abcd1234", "session", "window")
+
+        command = provider._build_claude_command()
+
+        assert "--dangerously-skip-permissions" not in command
+
+    def test_flag_appended_when_enabled(self):
+        provider = ClaudeCodeProvider(
+            "abcd1234", "session", "window", full_permissions=True
+        )
+
+        command = provider._build_claude_command()
+
+        assert "--dangerously-skip-permissions" in command

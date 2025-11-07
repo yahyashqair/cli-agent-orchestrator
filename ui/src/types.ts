@@ -34,6 +34,7 @@ export interface Terminal {
   status: TerminalStatus;
   created_at: string;
   updated_at: string;
+  full_permissions?: boolean;
 }
 
 export interface Session {

@@ -27,6 +27,7 @@ class TerminalModel(Base):
     provider = Column(String, nullable=False)  # "q_cli", "claude_code"
     agent_profile = Column(String)  # "developer", "reviewer" (optional)
     working_directory = Column(String)  # working directory path (optional)
+    full_permissions = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.now)
     last_active = Column(DateTime, default=datetime.now)
 
@@ -92,6 +93,20 @@ def init_db():
     except Exception as exc:
         logger.warning("Failed to ensure terminals.working_directory column exists: %s", exc)
 
+    # Lightweight migration: ensure terminals table has full_permissions column
+    try:
+        with engine.begin() as connection:
+            columns = connection.execute(text("PRAGMA table_info(terminals)")).fetchall()
+            if columns and not any(column[1] == "full_permissions" for column in columns):
+                connection.execute(
+                    text(
+                        "ALTER TABLE terminals ADD COLUMN full_permissions BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
+                logger.info("Added full_permissions column to terminals table")
+    except Exception as exc:
+        logger.warning("Failed to ensure terminals.full_permissions column exists: %s", exc)
+
     # Lightweight migration: ensure inbox table has delivered_at column
     try:
         with engine.begin() as connection:
@@ -110,6 +125,7 @@ def create_terminal(
     provider: str,
     agent_profile: str = None,
     working_directory: str = None,
+    full_permissions: bool = False,
 ) -> Dict:
     """Create terminal metadata record."""
     with SessionLocal() as db:
@@ -120,6 +136,7 @@ def create_terminal(
             provider=provider,
             agent_profile=agent_profile,
             working_directory=working_directory,
+            full_permissions=full_permissions,
         )
         db.add(terminal)
         db.commit()
@@ -130,6 +147,7 @@ def create_terminal(
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
             "working_directory": terminal.working_directory,
+            "full_permissions": terminal.full_permissions,
             "created_at": terminal.created_at,
             "last_active": terminal.last_active,
         }
@@ -152,6 +170,7 @@ def get_terminal_metadata(terminal_id: str) -> Optional[Dict]:
             "provider": terminal.provider,
             "agent_profile": terminal.agent_profile,
             "working_directory": terminal.working_directory,
+            "full_permissions": terminal.full_permissions,
             "last_active": terminal.last_active,
         }
 
@@ -169,6 +188,8 @@ def list_terminals_by_session(tmux_session: str) -> List[Dict]:
                 "agent_profile": t.agent_profile,
                 "created_at": t.created_at,
                 "last_active": t.last_active,
+                "full_permissions": t.full_permissions,
+                "working_directory": t.working_directory,
             }
             for t in terminals
         ]

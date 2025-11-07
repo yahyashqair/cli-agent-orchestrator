@@ -36,6 +36,7 @@ def create_terminal(
     session_name: str = None,
     new_session: bool = False,
     working_directory: str = None,
+    full_permissions: bool = False,
 ) -> Terminal:
     """Create terminal, optionally creating new session with it."""
     try:
@@ -68,12 +69,24 @@ def create_terminal(
 
         # Save terminal metadata to database
         db_create_terminal(
-            terminal_id, session_name, window_name, provider, agent_profile, working_directory
+            terminal_id,
+            session_name,
+            window_name,
+            provider,
+            agent_profile,
+            working_directory,
+            full_permissions,
         )
 
         # Initialize provider
         provider_instance = provider_manager.create_provider(
-            provider, terminal_id, session_name, window_name, agent_profile, working_directory
+            provider,
+            terminal_id,
+            session_name,
+            window_name,
+            agent_profile,
+            working_directory,
+            full_permissions=full_permissions,
         )
         provider_instance.initialize()
 
@@ -88,6 +101,7 @@ def create_terminal(
             provider=provider,
             session_name=session_name,
             agent_profile=agent_profile,
+            full_permissions=full_permissions,
         )
 
         logger.info(
@@ -124,6 +138,7 @@ def get_terminal(terminal_id: str) -> Dict:
             "agent_profile": metadata["agent_profile"],
             "status": status,
             "last_active": metadata["last_active"],
+            "full_permissions": metadata.get("full_permissions", False),
         }
 
     except Exception as e:

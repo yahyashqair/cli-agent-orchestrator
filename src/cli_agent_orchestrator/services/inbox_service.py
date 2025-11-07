@@ -70,9 +70,13 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
         logger.debug(f"Terminal {terminal_id} not ready (status={status})")
         return False
 
-    # Send message
+    # Send message with notification header
     try:
-        terminal_service.send_input(terminal_id, message.message)
+        # Prepend a clear notification to make the incoming message visible
+        notification_header = f"[INBOX MESSAGE FROM {message.sender_id}]"
+        formatted_message = f"{notification_header}\n{message.message}"
+
+        terminal_service.send_input(terminal_id, formatted_message)
         update_message_status(message.id, MessageStatus.DELIVERED)
         logger.info(f"Delivered message {message.id} to terminal {terminal_id}")
         return True

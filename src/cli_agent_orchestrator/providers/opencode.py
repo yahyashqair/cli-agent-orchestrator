@@ -48,9 +48,21 @@ class OpenCodeProvider(BaseProvider):
     """Provider for OpenCode CLI tool integration."""
 
     def __init__(
-        self, terminal_id: str, session_name: str, window_name: str, working_directory: str = None, agent_profile: str = None
+        self,
+        terminal_id: str,
+        session_name: str,
+        window_name: str,
+        working_directory: str = None,
+        agent_profile: str = None,
+        full_permissions: bool = False,
     ):
-        super().__init__(terminal_id, session_name, window_name, working_directory)
+        super().__init__(
+            terminal_id,
+            session_name,
+            window_name,
+            working_directory,
+            full_permissions=full_permissions,
+        )
         self._initialized = False
         self._agent_profile = agent_profile
 

@@ -30,6 +30,7 @@ interface RecentConfig {
   sessionName: string
   createNewSession: boolean
   timestamp: number
+  fullPermissions?: boolean
 }
 
 const RECENT_CONFIGS_KEY = 'cao-recent-configs'
@@ -42,6 +43,7 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   const [workingDirectory, setWorkingDirectory] = useState('')
   const [createNewSession, setCreateNewSession] = useState(true)
   const [selectedSession, setSelectedSession] = useState('')
+  const [fullPermissions, setFullPermissions] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [recentConfigs, setRecentConfigs] = useState<RecentConfig[]>(() => {
     try {
@@ -53,16 +55,19 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   })
 
   const queryClient = useQueryClient()
+  const shouldShowFullPermissions = provider === 'claude_code'
 
   // Save configuration to recent configs
   const saveRecentConfig = () => {
+    const configFullPermissions = shouldShowFullPermissions ? fullPermissions : false
     const config: RecentConfig = {
       provider,
       agentProfile,
       workingDirectory,
       sessionName,
       createNewSession,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      fullPermissions: configFullPermissions,
     }
 
     const updated = [
@@ -70,7 +75,8 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
       ...recentConfigs.filter(c =>
         c.provider !== provider ||
         c.agentProfile !== agentProfile ||
-        c.workingDirectory !== workingDirectory
+        c.workingDirectory !== workingDirectory ||
+        (c.fullPermissions ?? false) !== configFullPermissions
       )
     ].slice(0, MAX_RECENT_CONFIGS)
 
@@ -85,6 +91,7 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
     setWorkingDirectory(config.workingDirectory)
     setSessionName(config.sessionName)
     setCreateNewSession(config.createNewSession)
+    setFullPermissions(config.fullPermissions ?? false)
   }
 
   const { data: sessions = [], isPending: isSessionsLoading } = useQuery({
@@ -126,16 +133,29 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   const createSessionMutation = useMutation({
     mutationFn: async () => {
       setErrorMessage('')
+      const launchFullPermissions = shouldShowFullPermissions ? fullPermissions : false
 
       if (createNewSession) {
-        return api.createSession(provider, agentProfile, sessionName || undefined, workingDirectory || undefined)
+        return api.createSession(
+          provider,
+          agentProfile,
+          sessionName || undefined,
+          workingDirectory || undefined,
+          launchFullPermissions
+        )
       }
 
       if (!selectedSession) {
         throw new Error('Please select a session to attach the agent to.')
       }
 
-      return api.createTerminal(selectedSession, provider, agentProfile, workingDirectory || undefined)
+      return api.createTerminal(
+        selectedSession,
+        provider,
+        agentProfile,
+        workingDirectory || undefined,
+        launchFullPermissions
+      )
     },
     onSuccess: () => {
       saveRecentConfig()
@@ -244,6 +264,22 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
               className="form-control"
             />
           </div>
+
+          {shouldShowFullPermissions && (
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={fullPermissions}
+                  onChange={(e) => setFullPermissions(e.target.checked)}
+                />
+                Enable full permissions
+              </label>
+              <p className="helper-text">
+                Skips Claude permission prompts by launching with --dangerously-skip-permissions.
+              </p>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="checkbox-label">

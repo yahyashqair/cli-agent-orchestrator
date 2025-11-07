@@ -59,8 +59,15 @@ class CopilotCliProvider(BaseProvider):
         window_name: str,
         working_directory: Optional[str] = None,
         agent_profile: Optional[str] = None,
+        full_permissions: bool = False,
     ):
-        super().__init__(terminal_id, session_name, window_name, working_directory)
+        super().__init__(
+            terminal_id,
+            session_name,
+            window_name,
+            working_directory,
+            full_permissions=full_permissions,
+        )
         self._initialized = False
         self._agent_profile = agent_profile
         self._env_exports: Dict[str, str] = {}
