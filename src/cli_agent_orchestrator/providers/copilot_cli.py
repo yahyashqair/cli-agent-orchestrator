@@ -32,6 +32,7 @@ PROCESSING_TOKENS = (
     "working...",
     "processing",
     "drafting",
+    "esc to"
 )
 WAITING_TOKENS = (
     "requires your approval",
@@ -103,22 +104,24 @@ class CopilotCliProvider(BaseProvider):
             tmux_client.send_keys(self.session_name, self.window_name, f"export {key}={quoted}")
 
         # Build command with directory access
-        command_parts = ["copilot"]
+        command_parts = ["copilot", "--allow-all-tools"]
         if self.working_directory:
             command_parts.extend(["--add-dir", self.working_directory])
+        
         command = " ".join(shlex.quote(part) for part in command_parts)
 
         tmux_client.send_keys(self.session_name, self.window_name, command)
-
+        if wait_until_status(self, TerminalStatus.WAITING_USER_ANSWER, timeout=10.0):
+            tmux_client.send_keys(self.session_name, self.window_name, "2")
+        
         if not wait_until_status(self, TerminalStatus.IDLE, timeout=45.0):
             raise TimeoutError("Copilot CLI initialization timed out after 45 seconds")
-
         if self._profile:
             system_prompt = getattr(self._profile, "system_prompt", None)
             if system_prompt:
                 tmux_client.send_keys(self.session_name, self.window_name, system_prompt)
                 tmux_client.send_keys(self.session_name, self.window_name, "")
-                if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
+                if not wait_until_status(self, TerminalStatus.IDLE, timeout=40.0):
                     logger.warning("Copilot CLI did not return to idle after sending system prompt")
 
         self._initialized = True
@@ -142,29 +145,10 @@ class CopilotCliProvider(BaseProvider):
         if any(token in lower for token in WAITING_TOKENS):
             return TerminalStatus.WAITING_USER_ANSWER
 
-        prompt_matches = list(PROMPT_PATTERN.finditer(clean))
-        last_prompt = prompt_matches[-1] if prompt_matches else None
-
-        assistant_matches = [
-            match
-            for match in ASSISTANT_PATTERN.finditer(clean)
-            if not last_prompt or match.start() < last_prompt.start()
-        ]
-        last_assistant = assistant_matches[-1] if assistant_matches else None
-
-        if last_prompt:
-            if last_assistant:
-                response = clean[last_assistant.end() : last_prompt.start()].strip()
-                if response:
-                    if any(token in response.lower() for token in PROCESSING_TOKENS):
-                        return TerminalStatus.PROCESSING
-                    return TerminalStatus.COMPLETED
-            return TerminalStatus.IDLE
-
         if any(token in lower for token in PROCESSING_TOKENS):
             return TerminalStatus.PROCESSING
 
-        return TerminalStatus.PROCESSING
+        return TerminalStatus.IDLE
 
     def get_idle_pattern_for_log(self) -> str:
         """Return pattern that indicates Copilot is idle in log tails."""
