@@ -1,27 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, Play, History } from 'lucide-react'
 import { api } from '../api/client'
+import { AGENT_PROFILE_OPTIONS, DEFAULT_PROVIDER, PROVIDER_OPTIONS } from '../constants/providers'
 import './ControlPanel.css'
 
 interface ControlPanelProps {
   onClose: () => void
   onSuccess: () => void
 }
-
-const PROVIDERS = [
-  { value: 'q_cli', label: 'Amazon Q Developer CLI' },
-  { value: 'claude_code', label: 'Claude Code' },
-  { value: 'codex_cli', label: 'Codex CLI' },
-  { value: 'copilot_cli', label: 'GitHub Copilot CLI' },
-  { value: 'opencode', label: 'OpenCode' },
-]
-
-const AGENT_PROFILES = [
-  { value: 'code_supervisor', label: 'Code Supervisor', description: 'Coordinates development tasks' },
-  { value: 'developer', label: 'Developer', description: 'Writes code based on specifications' },
-  { value: 'reviewer', label: 'Reviewer', description: 'Performs code reviews' },
-]
 
 interface RecentConfig {
   provider: string
@@ -37,7 +24,7 @@ const RECENT_CONFIGS_KEY = 'cao-recent-configs'
 const MAX_RECENT_CONFIGS = 5
 
 export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) {
-  const [provider, setProvider] = useState('claude_code')
+  const [provider, setProvider] = useState(DEFAULT_PROVIDER)
   const [agentProfile, setAgentProfile] = useState('developer')
   const [sessionName, setSessionName] = useState('')
   const [workingDirectory, setWorkingDirectory] = useState('')
@@ -45,6 +32,7 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   const [selectedSession, setSelectedSession] = useState('')
   const [fullPermissions, setFullPermissions] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [providerManuallySet, setProviderManuallySet] = useState(false)
   const [recentConfigs, setRecentConfigs] = useState<RecentConfig[]>(() => {
     try {
       const stored = localStorage.getItem(RECENT_CONFIGS_KEY)
@@ -85,9 +73,37 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   }
 
   // Load configuration from recent config
+  const providerConfigsQuery = useQuery({
+    queryKey: ['agent-provider-configs'],
+    queryFn: api.listAgentProviderConfigs,
+    staleTime: 30_000,
+  })
+
+  const providerOverrideMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const config of providerConfigsQuery.data ?? []) {
+      map[config.agent_profile] = config.provider
+    }
+    return map
+  }, [providerConfigsQuery.data])
+
+  const handleAgentProfileChange = useCallback(
+    (nextProfile: string, applyOverride: boolean = true) => {
+      setAgentProfile(nextProfile)
+      if (applyOverride) {
+        const override = providerOverrideMap[nextProfile]
+        const fallbackProvider = override ?? DEFAULT_PROVIDER
+        setProvider(fallbackProvider)
+        setProviderManuallySet(false)
+      }
+    },
+    [providerOverrideMap]
+  )
+
   const loadRecentConfig = (config: RecentConfig) => {
     setProvider(config.provider)
-    setAgentProfile(config.agentProfile)
+    setProviderManuallySet(true)
+    handleAgentProfileChange(config.agentProfile, false)
     setWorkingDirectory(config.workingDirectory)
     setSessionName(config.sessionName)
     setCreateNewSession(config.createNewSession)
@@ -176,7 +192,24 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
     createSessionMutation.mutate()
   }
 
+  useEffect(() => {
+    if (providerManuallySet) {
+      return
+    }
+
+    const override = providerOverrideMap[agentProfile]
+    const desiredProvider = override ?? DEFAULT_PROVIDER
+    if (desiredProvider !== provider) {
+      setProvider(desiredProvider)
+    }
+  }, [agentProfile, providerOverrideMap, provider, providerManuallySet])
+
   const disableLaunch = createSessionMutation.isPending || (!createNewSession && !selectedSession)
+
+  const handleProviderChange = (value: string) => {
+    setProvider(value)
+    setProviderManuallySet(true)
+  }
 
   return (
     <div className="control-panel-overlay" onClick={onClose}>
@@ -206,8 +239,8 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
               >
                 <option value="">Select a recent configuration...</option>
                 {recentConfigs.map((config, index) => {
-                  const providerLabel = PROVIDERS.find(p => p.value === config.provider)?.label || config.provider
-                  const profileLabel = AGENT_PROFILES.find(p => p.value === config.agentProfile)?.label || config.agentProfile
+                  const providerLabel = PROVIDER_OPTIONS.find(p => p.value === config.provider)?.label || config.provider
+                  const profileLabel = AGENT_PROFILE_OPTIONS.find(p => p.value === config.agentProfile)?.label || config.agentProfile
                   return (
                     <option key={index} value={index}>
                       {providerLabel} - {profileLabel}
@@ -224,10 +257,10 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
             <select
               id="provider"
               value={provider}
-              onChange={(e) => setProvider(e.target.value)}
+              onChange={(e) => handleProviderChange(e.target.value)}
               className="form-control"
             >
-              {PROVIDERS.map((p) => (
+              {PROVIDER_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>
@@ -240,10 +273,10 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
             <select
               id="agentProfile"
               value={agentProfile}
-              onChange={(e) => setAgentProfile(e.target.value)}
+              onChange={(e) => handleAgentProfileChange(e.target.value)}
               className="form-control"
             >
-              {AGENT_PROFILES.map((profile) => (
+              {AGENT_PROFILE_OPTIONS.map((profile) => (
                 <option key={profile.value} value={profile.value}>
                   {profile.label} - {profile.description}
                 </option>

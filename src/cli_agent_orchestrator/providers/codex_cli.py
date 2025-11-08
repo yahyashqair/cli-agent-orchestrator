@@ -121,9 +121,7 @@ class CodexCliProvider(BaseProvider):
 
                 # Wait a bit for the message to be processed
                 if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
-                    logger.warning(
-                        "Codex CLI did not return to idle after sending system prompt"
-                    )
+                    logger.warning("Codex CLI did not return to idle after sending system prompt")
 
         self._initialized = True
         return True
@@ -190,7 +188,9 @@ class CodexCliProvider(BaseProvider):
                 if result.returncode != 0:
                     # If server already exists, remove it and try again
                     if "already exists" in (result.stderr or ""):
-                        logger.debug(f"MCP server '{name}' already exists, removing and re-registering")
+                        logger.debug(
+                            f"MCP server '{name}' already exists, removing and re-registering"
+                        )
                         remove_cmd = ["codex", "mcp", "remove", name]
                         subprocess.run(remove_cmd, check=False, capture_output=True, env=base_env)
                         # Try registering again
@@ -214,6 +214,13 @@ class CodexCliProvider(BaseProvider):
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Error registering MCP server '%s': %s", name, exc)
 
+    @staticmethod
+    def _get_last_n_words(text: str, n: int = 100) -> str:
+        """Extract the last N words from text."""
+        words = text.split()
+        last_words = words[-n:] if len(words) > n else words
+        return " ".join(last_words)
+
     def get_status(self, tail_lines: int = None) -> TerminalStatus:
         """Determine Codex CLI status from tmux history."""
         output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=tail_lines)
@@ -236,28 +243,22 @@ class CodexCliProvider(BaseProvider):
             self._last_completion_marker = None
             return TerminalStatus.WAITING_USER_ANSWER
 
+        # Check for processing state ONLY if "esc to" appears in last 100 words
+        last_100_words = self._get_last_n_words(lower, 100)
+        if ESC_TO_INTERRUPT in last_100_words:
+            self._last_completion_marker = None
+            return TerminalStatus.PROCESSING
+
         # Codex prints responses as bullet lists; the latest bullet carries the active state.
         last_bullet = clean.rfind("•")
         if last_bullet != -1:
             tail = clean[last_bullet:]
-            tail_lower = tail.lower()
-            if ESC_TO_INTERRUPT in tail_lower:
-                self._last_completion_marker = None
-                return TerminalStatus.PROCESSING
-            if WORKING_TOKEN in tail_lower and ESC_TO_INTERRUPT in lower:
-                self._last_completion_marker = None
-                return TerminalStatus.PROCESSING
             # Content after the bullet is the final response
             if tail.strip():
                 completion_marker = tail.strip()
                 if completion_marker != self._last_completion_marker:
                     self._last_completion_marker = completion_marker
                     return TerminalStatus.COMPLETED
-
-        # Default to processing when Codex shows its spinner text.
-        if ESC_TO_INTERRUPT in lower or WORKING_TOKEN in lower:
-            self._last_completion_marker = None
-            return TerminalStatus.PROCESSING
 
         return TerminalStatus.IDLE
 

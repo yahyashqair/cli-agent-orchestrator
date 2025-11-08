@@ -88,6 +88,39 @@ def test_launch_accepts_copilot_provider(monkeypatch):
     assert captured["params"]["agent_profile"] == "developer"
 
 
+def test_launch_prefers_saved_override(monkeypatch):
+    """Use a stored override when launching without --provider."""
+
+    runner = CliRunner()
+    captured = {}
+
+    class Profile:
+        provider = None
+
+    monkeypatch.setattr(launch_module, "load_agent_profile", lambda _: Profile())
+    monkeypatch.setattr(
+        launch_module.agent_config_service,
+        "get_provider_for_profile",
+        lambda profile: "codex_cli",
+    )
+    monkeypatch.setattr(
+        launch_module.requests,
+        "post",
+        lambda url, params: _capture_post(
+            url, params, captured, "cao-session-codex-override", "codex-window"
+        ),
+    )
+
+    result = runner.invoke(
+        launch_module.launch,
+        ["--agents", "developer", "--headless", "--skip-checks"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["params"]["provider"] == "codex_cli"
+    assert "saved override" in result.output
+
+
 def _capture_post(url, params, captured, session_name, window_name):
     """Capture params for assertions while mimicking a successful POST call."""
 

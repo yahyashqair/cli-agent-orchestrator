@@ -83,7 +83,7 @@ class OpenCodeProvider(BaseProvider):
                 ["opencode", "auth", "list"],
                 capture_output=True,
                 text=True,
-                timeout=10  # Increased timeout
+                timeout=10,  # Increased timeout
             )
             # If the command succeeds, assume authentication is configured
             # Even if no credentials are shown, let OpenCode handle it during startup
@@ -106,6 +106,7 @@ class OpenCodeProvider(BaseProvider):
     def _initialize_project(self) -> None:
         """Initialize OpenCode project by sending /init command."""
         import time
+
         # Wait a moment for OpenCode to start up
         time.sleep(2)
         # Send /init command
@@ -116,6 +117,7 @@ class OpenCodeProvider(BaseProvider):
     def _build_opencode_command(self) -> list:
         """Build OpenCode command with agent profile if provided."""
         import os
+
         command_parts = ["opencode"]
 
         # Add working directory as project argument (use provided or fallback to current)

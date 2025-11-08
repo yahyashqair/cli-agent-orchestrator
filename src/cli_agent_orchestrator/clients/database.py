@@ -62,6 +62,15 @@ class FlowModel(Base):
     enabled = Column(Boolean, default=True)
 
 
+class AgentProviderConfigModel(Base):
+    """SQLAlchemy model for per-agent provider overrides."""
+
+    __tablename__ = "agent_provider_configs"
+
+    agent_profile = Column(String, primary_key=True)
+    provider = Column(String, nullable=False)
+
+
 # Module-level singletons
 DB_DIR.mkdir(parents=True, exist_ok=True)
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -116,6 +125,23 @@ def init_db():
                 logger.info("Added delivered_at column to inbox table")
     except Exception as exc:
         logger.warning("Failed to ensure inbox.delivered_at column exists: %s", exc)
+
+    # Lightweight migration: ensure agent_provider_configs table exists
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS agent_provider_configs (
+                        agent_profile TEXT PRIMARY KEY,
+                        provider TEXT NOT NULL
+                    )
+                    """
+                )
+            )
+            logger.info("Ensured agent_provider_configs table exists")
+    except Exception as exc:
+        logger.warning("Failed to ensure agent_provider_configs table exists: %s", exc)
 
 
 def create_terminal(
@@ -417,3 +443,60 @@ def get_flows_to_run() -> List[Flow]:
             )
             for f in flows
         ]
+
+
+# Agent provider config functions
+def list_agent_provider_configs() -> List[Dict[str, str]]:
+    """List all configured agent provider overrides."""
+    with SessionLocal() as db:
+        configs = (
+            db.query(AgentProviderConfigModel)
+            .order_by(AgentProviderConfigModel.agent_profile.asc())
+            .all()
+        )
+        return [
+            {"agent_profile": config.agent_profile, "provider": config.provider}
+            for config in configs
+        ]
+
+
+def get_agent_provider_config(agent_profile: str) -> Optional[Dict[str, str]]:
+    """Get provider override for a specific agent profile."""
+    with SessionLocal() as db:
+        config = (
+            db.query(AgentProviderConfigModel)
+            .filter(AgentProviderConfigModel.agent_profile == agent_profile)
+            .first()
+        )
+        if not config:
+            return None
+        return {"agent_profile": config.agent_profile, "provider": config.provider}
+
+
+def set_agent_provider_config(agent_profile: str, provider: str) -> Dict[str, str]:
+    """Upsert provider override for an agent profile."""
+    with SessionLocal() as db:
+        config = (
+            db.query(AgentProviderConfigModel)
+            .filter(AgentProviderConfigModel.agent_profile == agent_profile)
+            .first()
+        )
+        if config:
+            config.provider = provider
+        else:
+            config = AgentProviderConfigModel(agent_profile=agent_profile, provider=provider)
+            db.add(config)
+        db.commit()
+        return {"agent_profile": config.agent_profile, "provider": config.provider}
+
+
+def delete_agent_provider_config(agent_profile: str) -> bool:
+    """Delete provider override for an agent profile."""
+    with SessionLocal() as db:
+        deleted = (
+            db.query(AgentProviderConfigModel)
+            .filter(AgentProviderConfigModel.agent_profile == agent_profile)
+            .delete()
+        )
+        db.commit()
+        return deleted > 0

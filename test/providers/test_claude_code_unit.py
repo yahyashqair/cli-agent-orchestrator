@@ -5,7 +5,6 @@ from unittest.mock import patch
 from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.providers.claude_code import ClaudeCodeProvider
 
-
 CLAUDE_IDLE_OUTPUT = "> \n"
 CLAUDE_PROCESSING_OUTPUT = "✶ Working... (esc to interrupt)\n> \n"
 CLAUDE_WAITING_OUTPUT = "❯ 1. Ask a follow-up\n> \n"
@@ -55,9 +54,7 @@ class TestClaudeCodeFullPermissionsFlag:
         assert "--dangerously-skip-permissions" not in command
 
     def test_flag_appended_when_enabled(self):
-        provider = ClaudeCodeProvider(
-            "abcd1234", "session", "window", full_permissions=True
-        )
+        provider = ClaudeCodeProvider("abcd1234", "session", "window", full_permissions=True)
 
         command = provider._build_claude_command()
 

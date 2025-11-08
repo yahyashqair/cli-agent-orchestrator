@@ -42,12 +42,12 @@ def load_agent_profile(agent_name: str) -> AgentProfile:
 
 def _populate_mcp_config(profile: AgentProfile) -> AgentProfile:
     """Auto-populate MCP server configuration if not specified.
-    
+
     If cao-mcp-server is configured but has no command, auto-detect it.
     """
     if not profile.mcpServers:
         return profile
-    
+
     # Check if cao-mcp-server needs auto-detection
     cao_mcp = profile.mcpServers.get("cao-mcp-server")
     if cao_mcp and not cao_mcp.get("command"):
@@ -55,5 +55,5 @@ def _populate_mcp_config(profile: AgentProfile) -> AgentProfile:
         cmd_parts = get_cao_mcp_command()
         cao_mcp["command"] = cmd_parts[0]
         cao_mcp["args"] = cmd_parts[1:]
-    
+
     return profile

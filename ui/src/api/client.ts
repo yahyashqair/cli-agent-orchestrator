@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Terminal, Session, TerminalOutput, InboxMessage, Flow } from '../types';
+import type { Terminal, Session, TerminalOutput, InboxMessage, Flow, AgentProviderConfig } from '../types';
 
 const API_BASE = '/api';
 
@@ -195,5 +195,23 @@ export const api = {
   executeFlow: async (flowName: string) => {
     const { data } = await axios.post(`${API_BASE}/flows/${flowName}/execute`);
     return data;
+  },
+
+  // Agent provider configs
+  listAgentProviderConfigs: async () => {
+    const { data } = await axios.get<AgentProviderConfig[]>(`${API_BASE}/agent-provider-configs`);
+    return data;
+  },
+
+  upsertAgentProviderConfig: async (agentProfile: string, provider: string) => {
+    const { data } = await axios.put<AgentProviderConfig>(
+      `${API_BASE}/agent-provider-configs/${agentProfile}`,
+      { provider }
+    );
+    return data;
+  },
+
+  deleteAgentProviderConfig: async (agentProfile: string) => {
+    await axios.delete(`${API_BASE}/agent-provider-configs/${agentProfile}`);
   },
 };

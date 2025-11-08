@@ -136,6 +136,7 @@ def create_terminal(
             provider=provider,
             session_name=session_name,
             agent_profile=agent_profile,
+            working_directory=working_directory,
             full_permissions=full_permissions,
         )
 
@@ -172,6 +173,7 @@ def get_terminal(terminal_id: str) -> Dict:
             "provider": metadata["provider"],
             "session_name": metadata["tmux_session"],
             "agent_profile": metadata["agent_profile"],
+            "working_directory": metadata.get("working_directory"),
             "status": status,
             "last_active": metadata["last_active"],
             "full_permissions": metadata.get("full_permissions", False),

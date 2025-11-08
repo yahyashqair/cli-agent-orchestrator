@@ -7,6 +7,7 @@ import subprocess
 import click
 import requests
 
+from cli_agent_orchestrator.cli.commands.validate import validate_profile
 from cli_agent_orchestrator.constants import (
     API_BASE_URL,
     DEFAULT_PROVIDER,
@@ -14,23 +15,23 @@ from cli_agent_orchestrator.constants import (
     SERVER_HOST,
     SERVER_PORT,
 )
+from cli_agent_orchestrator.services import agent_config_service
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
 from cli_agent_orchestrator.utils.mcp_config import validate_provider_available
-from cli_agent_orchestrator.cli.commands.validate import validate_profile
 
 
-def _pre_launch_check(provider: str, agent_profile: str) -> bool:
+def _pre_launch_check(provider: str, agent_profile: str, enforce: bool = False) -> bool:
     """Run health checks before launching agent.
-    
+
     Args:
         provider: Provider name to check
         agent_profile: Agent profile name to validate
-        
+
     Returns:
-        bool: True if all checks pass, False otherwise
+        bool: True if checks pass or enforcement disabled, False otherwise
     """
     checks_passed = True
-    
+
     # Check 1: Server is running
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=2)
@@ -40,10 +41,11 @@ def _pre_launch_check(provider: str, agent_profile: str) -> bool:
             click.echo("❌ CAO server returned unexpected status")
             checks_passed = False
     except:
-        click.echo("❌ CAO server is not running")
-        click.echo("   Start it with: cao-server")
-        checks_passed = False
-    
+        click.echo("⚠️ CAO server is not running")
+        click.echo("   Start it with: cao-server (warning only)")
+        if enforce:
+            checks_passed = False
+
     # Check 2: Agent profile exists and is valid
     try:
         profile = load_agent_profile(agent_profile)
@@ -56,22 +58,25 @@ def _pre_launch_check(provider: str, agent_profile: str) -> bool:
         else:
             click.echo(f"✅ Agent profile '{agent_profile}' is valid")
     except FileNotFoundError:
-        click.echo(f"❌ Agent profile '{agent_profile}' not found")
-        click.echo(f"   Install it with: cao install {agent_profile}")
-        checks_passed = False
+        click.echo(f"⚠️ Agent profile '{agent_profile}' not found")
+        click.echo(f"   Install it with: cao install {agent_profile} (warning only)")
+        if enforce:
+            checks_passed = False
     except Exception as e:
-        click.echo(f"❌ Failed to load agent profile: {e}")
-        checks_passed = False
-    
+        click.echo(f"⚠️ Failed to load agent profile: {e}")
+        if enforce:
+            checks_passed = False
+
     # Check 3: Provider is available
     is_available, error_msg = validate_provider_available(provider)
     if is_available:
         click.echo(f"✅ Provider '{provider}' is available")
     else:
-        click.echo(f"❌ Provider '{provider}' is not available")
+        click.echo(f"⚠️ Provider '{provider}' is not available")
         click.echo(f"   {error_msg}")
-        checks_passed = False
-    
+        if enforce:
+            checks_passed = False
+
     return checks_passed
 
 
@@ -89,17 +94,37 @@ def launch(agents, session_name, headless, provider, skip_checks):
     """Launch cao session with specified agent profile."""
     try:
         selected_provider = provider
+        profile_provider = None
+        configured_provider = None
 
         if not selected_provider:
-            # Detect provider preference from the agent profile so Codex/Claude
-            # sessions work without an explicit flag.
+            try:
+                configured_provider = agent_config_service.get_provider_for_profile(agents)
+            except Exception as exc:
+                click.echo(
+                    f"⚠️ Failed to load provider override for '{agents}': {exc}. Using defaults."
+                )
+                configured_provider = None
+
             try:
                 profile = load_agent_profile(agents)
-                selected_provider = profile.provider or DEFAULT_PROVIDER
+                profile_provider = getattr(profile, "provider", None)
             except Exception:
-                selected_provider = DEFAULT_PROVIDER
+                profile_provider = None
 
-            click.echo(f"Using provider '{selected_provider}' (derived from agent profile)")
+            selected_provider = agent_config_service.resolve_provider(
+                agents,
+                profile_provider=profile_provider,
+                inherited_provider=None,
+                configured_provider=configured_provider,
+            )
+
+            if configured_provider:
+                click.echo(f"Using provider '{selected_provider}' (saved override)")
+            elif profile_provider:
+                click.echo(f"Using provider '{selected_provider}' (defined in agent profile)")
+            else:
+                click.echo(f"Using provider '{selected_provider}' (default)")
 
         # Validate provider after defaults are resolved
         if selected_provider not in PROVIDERS:
@@ -108,11 +133,15 @@ def launch(agents, session_name, headless, provider, skip_checks):
             )
 
         # Run pre-launch health checks unless skipped
+        enforce_checks = os.environ.get("CAO_ENFORCE_PRECHECKS") == "1"
         if not skip_checks:
             click.echo("⏳ Running pre-launch checks...\n")
-            if not _pre_launch_check(selected_provider, agents):
+            checks_ok = _pre_launch_check(selected_provider, agents, enforce=enforce_checks)
+            if enforce_checks and not checks_ok:
                 click.echo("\n❌ Pre-launch checks failed")
-                click.echo("Fix the issues above or use --skip-checks to bypass")
+                click.echo(
+                    "Fix the issues above, set CAO_ENFORCE_PRECHECKS=0, or use --skip-checks to bypass"
+                )
                 return 1
             click.echo()  # Blank line
 

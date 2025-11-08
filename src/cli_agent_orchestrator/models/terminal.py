@@ -32,6 +32,10 @@ class Terminal(BaseModel):
     provider: ProviderType = Field(..., description="CLI tool provider")
     session_name: str = Field(..., description="Session name")
     agent_profile: Optional[str] = Field(None, description="Agent profile")
+    working_directory: Optional[str] = Field(
+        default=None,
+        description="Working directory assigned to the terminal",
+    )
     full_permissions: bool = Field(
         default=False,
         description="Whether the agent was launched with full permissions enabled",

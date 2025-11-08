@@ -35,6 +35,7 @@ export interface Terminal {
   created_at: string;
   updated_at: string;
   full_permissions?: boolean;
+  working_directory?: string | null;
 }
 
 export interface Session {
@@ -79,4 +80,9 @@ export interface Flow {
   enabled: boolean;
   last_run: string | null;
   next_run: string | null;
+}
+
+export interface AgentProviderConfig {
+  agent_profile: string;
+  provider: string;
 }

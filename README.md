@@ -159,6 +159,26 @@ npm run build
 
 For more details, see [ui/README.md](ui/README.md).
 
+### Agent Provider Configuration
+
+CAO now lets you pin a specific CLI provider per agent profile. The override order is:
+
+```
+saved override > agent profile metadata > inherited provider/session default > q_cli
+```
+
+Use the **Agent Providers** button in the UI header to open the settings panel and choose a default provider for each profile (Code Supervisor, Developer, Reviewer). The Control Panel will auto-select the stored override when you pick an agent and fall back to the profile metadata/`q_cli` whenever no override exists, so stale providers never linger. You can still switch providers for a one-off launch.
+
+Prefer an API? The FastAPI server exposes:
+
+| Endpoint | Description |
+| --- | --- |
+| `GET /agent-provider-configs` | List saved overrides |
+| `PUT /agent-provider-configs/{agent_profile}` | Upsert `{ "provider": "codex_cli" }` |
+| `DELETE /agent-provider-configs/{agent_profile}` | Clear an override and fall back to defaults |
+
+These values are also honored by the CLI (`cao launch` resolves the same precedence chain) and by the MCP server when supervisors spawn workers. Terminals now expose their `working_directory`, allowing worker agents to inherit the same path so Codex/Copilot/OpenCode sessions launch exactly where you expect.
+
 ### Working with tmux Sessions
 
 All agent sessions run in tmux. Useful commands:

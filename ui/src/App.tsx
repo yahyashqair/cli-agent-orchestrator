@@ -9,6 +9,7 @@ import ControlPanel from './components/ControlPanel'
 import FlowViewer from './components/FlowViewer'
 import FlowEditor from './components/FlowEditor'
 import ThemeToggle from './components/ThemeToggle'
+import AgentProviderSettings from './components/AgentProviderSettings'
 import { THEMES, type Theme } from './types'
 import './App.css'
 
@@ -38,6 +39,7 @@ function App() {
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null)
   const [terminalFocusKey, setTerminalFocusKey] = useState(0)
   const [showControlPanel, setShowControlPanel] = useState(false)
+  const [showProviderSettings, setShowProviderSettings] = useState(false)
   const [activeView, setActiveView] = useState<'sessions' | 'flows'>('sessions')
   const [showFlowEditor, setShowFlowEditor] = useState(false)
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
@@ -141,6 +143,12 @@ function App() {
         <div className="header-actions">
           <ThemeToggle theme={theme} onThemeChange={handleThemeChange} />
           <button
+            className="btn btn-secondary"
+            onClick={() => setShowProviderSettings(true)}
+          >
+            Agent Providers
+          </button>
+          <button
             className="btn btn-primary"
             onClick={() => setShowControlPanel(!showControlPanel)}
           >
@@ -174,6 +182,10 @@ function App() {
             setShowControlPanel(false)
           }}
         />
+      )}
+
+      {showProviderSettings && (
+        <AgentProviderSettings onClose={() => setShowProviderSettings(false)} />
       )}
 
       <div className="app-content">

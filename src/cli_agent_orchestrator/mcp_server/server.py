@@ -10,9 +10,10 @@ import requests
 from fastmcp import FastMCP
 from pydantic import Field
 
-from cli_agent_orchestrator.constants import API_BASE_URL, DEFAULT_PROVIDER
+from cli_agent_orchestrator.constants import API_BASE_URL
 from cli_agent_orchestrator.mcp_server.models import HandoffResult
 from cli_agent_orchestrator.models.terminal import TerminalStatus
+from cli_agent_orchestrator.services import agent_config_service
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
 from cli_agent_orchestrator.utils.terminal import generate_session_name, wait_until_terminal_status
 
@@ -45,7 +46,6 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
     Raises:
         Exception: If terminal creation fails
     """
-    provider = DEFAULT_PROVIDER
     profile_provider = None
 
     try:
@@ -56,8 +56,12 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
             f"Agent profile '{agent_profile}' is not installed. Run `cao install` before invoking it."
         ) from exc
 
-    if profile_provider:
-        provider = profile_provider
+    configured_provider = agent_config_service.get_provider_for_profile(agent_profile)
+    provider = agent_config_service.resolve_provider(
+        agent_profile,
+        profile_provider=profile_provider,
+        configured_provider=configured_provider,
+    )
 
     # Get current terminal ID from environment
     current_terminal_id = os.environ.get("CAO_TERMINAL_ID")
@@ -70,8 +74,17 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
         session_name = terminal_metadata["session_name"]
         working_directory = terminal_metadata.get("working_directory")  # Inherit from parent
 
-        if not profile_provider:
-            provider = terminal_metadata["provider"]
+        if not configured_provider and not profile_provider:
+            inherited_provider = terminal_metadata["provider"]
+        else:
+            inherited_provider = None
+
+        provider = agent_config_service.resolve_provider(
+            agent_profile,
+            profile_provider=profile_provider,
+            inherited_provider=inherited_provider,
+            configured_provider=configured_provider,
+        )
 
         # Create new terminal in existing session
         params = {"provider": provider, "agent_profile": agent_profile}
@@ -85,7 +98,13 @@ def _create_terminal(agent_profile: str) -> Tuple[str, str]:
         terminal = response.json()
     elif session_name := os.environ.get("CAO_SESSION_NAME"):
         # Fallback for environments that pass session metadata but not terminal IDs
-        selected_provider = profile_provider or os.environ.get("CAO_PROVIDER") or provider
+        inherited_provider = os.environ.get("CAO_PROVIDER")
+        selected_provider = agent_config_service.resolve_provider(
+            agent_profile,
+            profile_provider=profile_provider,
+            inherited_provider=inherited_provider,
+            configured_provider=configured_provider,
+        )
         working_directory = os.environ.get("CAO_WORKING_DIRECTORY")
 
         params = {"provider": selected_provider, "agent_profile": agent_profile}
@@ -256,7 +275,7 @@ async def handoff(
     except Exception as e:
         # Enhanced error handling with specific error codes
         error_msg = str(e)
-        
+
         if "Agent profile" in error_msg and "not installed" in error_msg:
             return HandoffResult(
                 success=False,
@@ -266,7 +285,7 @@ async def handoff(
                 debug_info={
                     "agent_profile": agent_profile,
                     "error": error_msg,
-                }
+                },
             )
         elif "Connection refused" in error_msg:
             return HandoffResult(
@@ -277,7 +296,7 @@ async def handoff(
                 debug_info={
                     "api_url": API_BASE_URL,
                     "error": error_msg,
-                }
+                },
             )
         elif "Session" in error_msg and "not found" in error_msg:
             return HandoffResult(
@@ -288,7 +307,7 @@ async def handoff(
                 debug_info={
                     "agent_profile": agent_profile,
                     "error": error_msg,
-                }
+                },
             )
         else:
             return HandoffResult(
@@ -300,7 +319,7 @@ async def handoff(
                     "agent_profile": agent_profile,
                     "exception_type": type(e).__name__,
                     "error": error_msg,
-                }
+                },
             )
 
 
@@ -343,7 +362,7 @@ async def assign(
     except Exception as e:
         # Enhanced error handling for assign
         error_msg = str(e)
-        
+
         if "Agent profile" in error_msg and "not installed" in error_msg:
             return {
                 "success": False,
@@ -354,7 +373,7 @@ async def assign(
                 "debug_info": {
                     "agent_profile": agent_profile,
                     "error": error_msg,
-                }
+                },
             }
         elif "Connection refused" in error_msg:
             return {
@@ -366,7 +385,7 @@ async def assign(
                 "debug_info": {
                     "api_url": API_BASE_URL,
                     "error": error_msg,
-                }
+                },
             }
         else:
             return {
@@ -379,7 +398,7 @@ async def assign(
                     "agent_profile": agent_profile,
                     "exception_type": type(e).__name__,
                     "error": error_msg,
-                }
+                },
             }
 
 
@@ -410,11 +429,11 @@ async def send_message(
                 "error": str(e),
                 "error_code": "TERMINAL_ID_NOT_SET",
                 "suggestion": "send_message() can only be used from within a CAO terminal. "
-                           "Make sure you're calling this from an agent terminal.",
+                "Make sure you're calling this from an agent terminal.",
                 "debug_info": {
                     "receiver_id": receiver_id,
                     "error": str(e),
-                }
+                },
             }
         else:
             return {
@@ -425,7 +444,7 @@ async def send_message(
                 "debug_info": {
                     "receiver_id": receiver_id,
                     "error": str(e),
-                }
+                },
             }
     except Exception as e:
         return {
@@ -437,7 +456,7 @@ async def send_message(
                 "receiver_id": receiver_id,
                 "exception_type": type(e).__name__,
                 "error": str(e),
-            }
+            },
         }
 
 

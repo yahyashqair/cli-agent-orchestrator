@@ -7,7 +7,6 @@ import pytest
 
 from cli_agent_orchestrator.mcp_server.server import _create_terminal
 
-
 META_ENV_VARS = [
     "CAO_TERMINAL_ID",
     "CAO_SESSION_NAME",
@@ -29,6 +28,14 @@ def clear_env():
                 os.environ[key] = value
             else:
                 os.environ.pop(key, None)
+
+
+@pytest.fixture(autouse=True)
+def clear_provider_overrides(monkeypatch):
+    monkeypatch.setattr(
+        "cli_agent_orchestrator.mcp_server.server.agent_config_service.get_provider_for_profile",
+        lambda profile: None,
+    )
 
 
 @patch("cli_agent_orchestrator.mcp_server.server.requests.post")
@@ -66,6 +73,72 @@ def test_create_terminal_respects_agent_provider(mock_load, mock_get, mock_post)
     assert call_args[1]["params"]["provider"] == "codex_cli"
     assert call_args[1]["params"]["agent_profile"] == "log_analyst_codex"
     assert call_args[1]["params"]["working_directory"] == "/test/working/dir"
+
+
+@patch("cli_agent_orchestrator.mcp_server.server.requests.post")
+@patch("cli_agent_orchestrator.mcp_server.server.requests.get")
+@patch("cli_agent_orchestrator.mcp_server.server.load_agent_profile")
+def test_create_terminal_prefers_configured_override(mock_load, mock_get, mock_post, monkeypatch):
+    """Configured override should take precedence over inherited provider."""
+    os.environ["CAO_TERMINAL_ID"] = "super123"
+
+    profile = MagicMock()
+    profile.provider = None
+    mock_load.return_value = profile
+
+    mock_get.return_value.raise_for_status.return_value = None
+    mock_get.return_value.json.return_value = {
+        "provider": "q_cli",
+        "session_name": "cao-test-session",
+        "working_directory": "/test/working/dir",
+    }
+
+    monkeypatch.setattr(
+        "cli_agent_orchestrator.mcp_server.server.agent_config_service.get_provider_for_profile",
+        lambda profile_name: "copilot_cli",
+    )
+
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {"id": "worker457"}
+
+    terminal_id, provider = _create_terminal("developer")
+
+    assert terminal_id == "worker457"
+    assert provider == "copilot_cli"
+
+    call_args = mock_post.call_args
+    assert call_args[1]["params"]["provider"] == "copilot_cli"
+
+
+@patch("cli_agent_orchestrator.mcp_server.server.requests.post")
+@patch("cli_agent_orchestrator.mcp_server.server.requests.get")
+@patch("cli_agent_orchestrator.mcp_server.server.load_agent_profile")
+def test_create_terminal_inherits_parent_working_directory(mock_load, mock_get, mock_post):
+    """Workers inherit the parent's working directory via the terminals API."""
+
+    os.environ["CAO_TERMINAL_ID"] = "super123"
+
+    profile = MagicMock()
+    profile.provider = None
+    mock_load.return_value = profile
+
+    mock_get.return_value.raise_for_status.return_value = None
+    mock_get.return_value.json.return_value = {
+        "provider": "q_cli",
+        "session_name": "cao-test-session",
+        "working_directory": "/workspace/cao",
+    }
+
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {"id": "worker458"}
+
+    terminal_id, provider = _create_terminal("developer")
+
+    assert terminal_id == "worker458"
+    assert provider == "q_cli"
+
+    params = mock_post.call_args[1]["params"]
+    assert params["working_directory"] == "/workspace/cao"
 
 
 @patch(

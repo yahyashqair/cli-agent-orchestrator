@@ -47,11 +47,11 @@ def temp_workspace(tmp_path):
     """Create a temporary workspace for testing."""
     workspace = tmp_path / "test_workspace"
     workspace.mkdir()
-    
+
     # Create a simple Python file to work with
     test_file = workspace / "test.py"
     test_file.write_text("def hello():\n    print('Hello, World!')\n")
-    
+
     return workspace
 
 
@@ -61,15 +61,15 @@ def opencode_provider(opencode_authenticated):
     session_name = "test-opencode-session"
     window_name = "test-window"
     terminal_id = "test-opencode-terminal"
-    
+
     # Create tmux session and window
     tmux_client.create_session(session_name)
     tmux_client.create_window(session_name, window_name)
-    
+
     provider = OpenCodeProvider(terminal_id, session_name, window_name)
-    
+
     yield provider
-    
+
     # Cleanup
     try:
         provider.cleanup()
@@ -92,12 +92,10 @@ class TestOpenCodeIntegration:
         """Test OpenCode can be initialized in a workspace."""
         # Change to the test workspace directory
         tmux_client.send_keys(
-            opencode_provider.session_name,
-            opencode_provider.window_name,
-            f"cd {temp_workspace}"
+            opencode_provider.session_name, opencode_provider.window_name, f"cd {temp_workspace}"
         )
         time.sleep(1)
-        
+
         # Initialize OpenCode
         try:
             success = opencode_provider.initialize()
@@ -124,23 +122,23 @@ class TestOpenCodeIntegration:
             tmux_client.send_keys(
                 opencode_provider.session_name,
                 opencode_provider.window_name,
-                f"cd {temp_workspace}"
+                f"cd {temp_workspace}",
             )
             time.sleep(1)
             opencode_provider.initialize()
         except TimeoutError:
             pytest.skip("OpenCode initialization timed out")
-        
+
         # Send a simple command
         tmux_client.send_keys(
             opencode_provider.session_name,
             opencode_provider.window_name,
-            "What files are in this directory?"
+            "What files are in this directory?",
         )
-        
+
         # Wait a bit for processing
         time.sleep(3)
-        
+
         # Check if we got any response
         try:
             status = opencode_provider.get_status()
@@ -148,7 +146,7 @@ class TestOpenCodeIntegration:
             assert status in [
                 TerminalStatus.PROCESSING,
                 TerminalStatus.COMPLETED,
-                TerminalStatus.IDLE
+                TerminalStatus.IDLE,
             ]
         except Exception:
             # If status detection fails, that's okay for integration test
@@ -170,6 +168,7 @@ class TestOpenCodeIntegration:
         # This would require OpenCode to be in Plan mode
         # For integration test, we just verify the pattern exists
         from cli_agent_orchestrator.providers.opencode import PLAN_MODE_PATTERN
+
         assert PLAN_MODE_PATTERN == r"\[Plan\]"
 
     def test_build_mode_detection(self, opencode_provider):
@@ -177,6 +176,7 @@ class TestOpenCodeIntegration:
         # This would require OpenCode to be in Build mode
         # For integration test, we just verify the pattern exists
         from cli_agent_orchestrator.providers.opencode import BUILD_MODE_PATTERN
+
         assert BUILD_MODE_PATTERN == r"\[Build\]"
 
 
@@ -189,15 +189,15 @@ class TestOpenCodeWithAgentProfile:
         session_name = "test-opencode-profile-session"
         window_name = "test-window"
         terminal_id = "test-opencode-profile-terminal"
-        
+
         # Create tmux session and window
         tmux_client.create_session(session_name)
         tmux_client.create_window(session_name, window_name)
-        
+
         provider = OpenCodeProvider(terminal_id, session_name, window_name, "test-profile")
-        
+
         yield provider
-        
+
         # Cleanup
         try:
             provider.cleanup()
@@ -240,10 +240,10 @@ class TestOpenCodeMessageExtractionIntegration:
 
 The solution is now ready and tested.
 → """
-        
+
         provider = OpenCodeProvider("test", "test", "test")
         result = provider.extract_last_message_from_script(sample_output)
-        
+
         assert "Here is the complete solution" in result
         assert "First step completed" in result
         assert "solution is now ready" in result
@@ -261,10 +261,10 @@ Each paragraph should be preserved.
 Including code blocks and special characters.
 
 → """
-        
+
         provider = OpenCodeProvider("test", "test", "test")
         result = provider.extract_last_message_from_script(complex_output)
-        
+
         assert "Final comprehensive response" in result
         assert "main answer with multiple paragraphs" in result
         assert "Each paragraph should be preserved" in result

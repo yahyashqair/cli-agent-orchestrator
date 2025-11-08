@@ -24,9 +24,7 @@ PROVIDER_NAME = "copilot_cli"
 
 # Copilot-specific markers
 PROMPT_PATTERN = re.compile(r"(?:^|\n)(?:copilot|you)\s*>\s*$", re.IGNORECASE)
-ASSISTANT_PATTERN = re.compile(
-    r"(?:^|\n)(?:copilot|assistant|ai)\s*(?:[:>\-])\s*", re.IGNORECASE
-)
+ASSISTANT_PATTERN = re.compile(r"(?:^|\n)(?:copilot|assistant|ai)\s*(?:[:>\-])\s*", re.IGNORECASE)
 PROCESSING_TOKENS = (
     "copilot is thinking",
     "thinking...",
@@ -109,7 +107,7 @@ class CopilotCliProvider(BaseProvider):
         if self.working_directory:
             command_parts.extend(["--add-dir", self.working_directory])
         command = " ".join(shlex.quote(part) for part in command_parts)
-        
+
         tmux_client.send_keys(self.session_name, self.window_name, command)
 
         if not wait_until_status(self, TerminalStatus.IDLE, timeout=45.0):
@@ -121,9 +119,7 @@ class CopilotCliProvider(BaseProvider):
                 tmux_client.send_keys(self.session_name, self.window_name, system_prompt)
                 tmux_client.send_keys(self.session_name, self.window_name, "")
                 if not wait_until_status(self, TerminalStatus.IDLE, timeout=10.0):
-                    logger.warning(
-                        "Copilot CLI did not return to idle after sending system prompt"
-                    )
+                    logger.warning("Copilot CLI did not return to idle after sending system prompt")
 
         self._initialized = True
         return True
@@ -150,7 +146,9 @@ class CopilotCliProvider(BaseProvider):
         last_prompt = prompt_matches[-1] if prompt_matches else None
 
         assistant_matches = [
-            match for match in ASSISTANT_PATTERN.finditer(clean) if not last_prompt or match.start() < last_prompt.start()
+            match
+            for match in ASSISTANT_PATTERN.finditer(clean)
+            if not last_prompt or match.start() < last_prompt.start()
         ]
         last_assistant = assistant_matches[-1] if assistant_matches else None
 
@@ -182,7 +180,9 @@ class CopilotCliProvider(BaseProvider):
         last_prompt = prompt_matches[-1]
 
         assistant_matches = [
-            match for match in ASSISTANT_PATTERN.finditer(clean) if match.start() < last_prompt.start()
+            match
+            for match in ASSISTANT_PATTERN.finditer(clean)
+            if match.start() < last_prompt.start()
         ]
         if not assistant_matches:
             raise ValueError("No Copilot CLI response found - no assistant output detected")

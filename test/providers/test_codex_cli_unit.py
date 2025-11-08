@@ -52,9 +52,7 @@ class TestCodexCliInitialization:
     @patch("cli_agent_orchestrator.providers.codex_cli.wait_for_shell")
     @patch("cli_agent_orchestrator.providers.codex_cli.wait_until_status")
     @patch("cli_agent_orchestrator.providers.codex_cli.tmux_client")
-    def test_initialize_with_working_directory(
-        self, mock_tmux, mock_wait_status, mock_wait_shell
-    ):
+    def test_initialize_with_working_directory(self, mock_tmux, mock_wait_status, mock_wait_shell):
         mock_wait_shell.return_value = True
         mock_wait_status.return_value = True
 

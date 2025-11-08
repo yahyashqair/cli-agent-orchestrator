@@ -7,7 +7,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path as FilePath
 from typing import Annotated, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Path, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Path,
+    Query,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
@@ -23,6 +32,7 @@ from cli_agent_orchestrator.clients.database import (
 )
 from cli_agent_orchestrator.constants import (
     INBOX_POLLING_INTERVAL,
+    PROVIDERS,
     SERVER_HOST,
     SERVER_PORT,
     SERVER_VERSION,
@@ -31,6 +41,7 @@ from cli_agent_orchestrator.constants import (
 from cli_agent_orchestrator.models.terminal import Terminal, TerminalId
 from cli_agent_orchestrator.providers.manager import provider_manager
 from cli_agent_orchestrator.services import (
+    agent_config_service,
     flow_service,
     inbox_service,
     session_service,
@@ -71,6 +82,22 @@ async def flow_daemon():
 class TerminalOutputResponse(BaseModel):
     output: str
     mode: str
+
+
+class AgentProviderConfigResponse(BaseModel):
+    agent_profile: str = Field(description="Agent profile identifier")
+    provider: str = Field(description="Configured provider override")
+
+
+class AgentProviderConfigRequest(BaseModel):
+    provider: str = Field(description="Provider identifier", examples=["codex_cli"])
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, value: str) -> str:
+        if value not in PROVIDERS:
+            raise ValueError(f"Provider must be one of {', '.join(PROVIDERS)}")
+        return value
 
 
 @asynccontextmanager
@@ -129,6 +156,69 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "cli-agent-orchestrator"}
+
+
+@app.get(
+    "/agent-provider-configs",
+    response_model=List[AgentProviderConfigResponse],
+    summary="List agent provider overrides",
+)
+async def list_agent_provider_configs() -> List[Dict[str, str]]:
+    try:
+        return agent_config_service.list_provider_configs()
+    except Exception as exc:
+        logger.error("Failed to list agent provider configs: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list agent provider configs: {exc}",
+        )
+
+
+@app.put(
+    "/agent-provider-configs/{agent_profile}",
+    response_model=AgentProviderConfigResponse,
+    summary="Upsert agent provider override",
+)
+async def upsert_agent_provider_config(
+    agent_profile: Annotated[str, Path(description="Agent profile identifier")],
+    payload: AgentProviderConfigRequest,
+) -> Dict[str, str]:
+    try:
+        return agent_config_service.set_provider_for_profile(agent_profile, payload.provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        logger.error("Failed to upsert agent provider config: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set provider config: {exc}",
+        )
+
+
+@app.delete(
+    "/agent-provider-configs/{agent_profile}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete agent provider override",
+)
+async def delete_agent_provider_config(
+    agent_profile: Annotated[str, Path(description="Agent profile identifier")],
+) -> Response:
+    try:
+        deleted = agent_config_service.clear_provider_for_profile(agent_profile)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No provider override configured for '{agent_profile}'",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to delete agent provider config: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete provider config: {exc}",
+        )
 
 
 @app.post("/sessions", response_model=Terminal, status_code=status.HTTP_201_CREATED)
@@ -336,15 +426,18 @@ async def open_terminal_in_tmux(terminal_id: TerminalId) -> Dict:
         session_name = terminal["session_name"]
 
         # Try to open terminal emulator with tmux attach command
-        import subprocess
         import shutil
+        import subprocess
 
         # Command to attach to tmux session
         attach_command = f"tmux attach-session -t {session_name}"
 
         # Try different terminal emulators in order of preference
         terminal_emulators = [
-            ("gnome-terminal", ["gnome-terminal", "--", "bash", "-c", f"{attach_command}; exec bash"]),
+            (
+                "gnome-terminal",
+                ["gnome-terminal", "--", "bash", "-c", f"{attach_command}; exec bash"],
+            ),
             ("konsole", ["konsole", "-e", f"{attach_command}"]),
             ("xfce4-terminal", ["xfce4-terminal", "-e", f"{attach_command}"]),
             ("xterm", ["xterm", "-e", f"{attach_command}"]),
@@ -484,9 +577,7 @@ async def get_inbox_messages(
         raise
     except Exception as e:
         logger.error(f"Error fetching inbox messages for terminal {terminal_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @app.get("/inbox/messages/pending/count")
@@ -499,9 +590,7 @@ async def get_pending_messages_count() -> Dict:
             return {"count": count, "pending_messages": count}
     except Exception as e:
         logger.error(f"Error fetching pending messages count: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @app.get("/terminals/{terminal_id}/inbox/messages/pending/count")
@@ -527,9 +616,7 @@ async def get_terminal_pending_messages_count(terminal_id: str) -> Dict:
             }
     except Exception as e:
         logger.error(f"Error fetching pending count for terminal {terminal_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # Flow endpoints

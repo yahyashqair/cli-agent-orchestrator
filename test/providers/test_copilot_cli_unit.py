@@ -34,6 +34,8 @@ class TestCopilotCliInitialization:
         mock_wait_shell.assert_called_once()
         assert mock_tmux.send_keys.call_args_list == [
             call("session", "window", "export CAO_TERMINAL_ID=abcd1234"),
+            call("session", "window", "export CAO_SESSION_NAME=session"),
+            call("session", "window", "export CAO_PROVIDER=copilot_cli"),
             call("session", "window", "export COPILOT_ALLOW_ALL=true"),
             call("session", "window", "copilot"),
         ]
@@ -79,13 +81,19 @@ class TestCopilotCliInitialization:
             "session", "window", "export CAO_TERMINAL_ID=abcd1234"
         )
         assert mock_tmux.send_keys.call_args_list[1] == call(
+            "session", "window", "export CAO_SESSION_NAME=session"
+        )
+        assert mock_tmux.send_keys.call_args_list[2] == call(
+            "session", "window", "export CAO_PROVIDER=copilot_cli"
+        )
+        assert mock_tmux.send_keys.call_args_list[3] == call(
             "session", "window", "export COPILOT_ALLOW_ALL=true"
         )
-        assert mock_tmux.send_keys.call_args_list[2] == call("session", "window", "copilot")
-        assert mock_tmux.send_keys.call_args_list[3] == call(
+        assert mock_tmux.send_keys.call_args_list[4] == call("session", "window", "copilot")
+        assert mock_tmux.send_keys.call_args_list[5] == call(
             "session", "window", "Follow these agent rules."
         )
-        assert mock_tmux.send_keys.call_args_list[4] == call("session", "window", "")
+        assert mock_tmux.send_keys.call_args_list[6] == call("session", "window", "")
 
     @patch("cli_agent_orchestrator.providers.copilot_cli.load_agent_profile")
     @patch("cli_agent_orchestrator.providers.copilot_cli.wait_for_shell")
@@ -120,13 +128,15 @@ class TestCopilotCliInitialization:
         )
         assert provider.initialize() is True
 
-        # Expect exports for CAO id, COPILOT_ALLOW_ALL, and profile env variables
+        # Expect exports for CAO metadata, COPILOT_ALLOW_ALL, and profile env variables
         exports = [
             call_args.args[2]
             for call_args in mock_tmux.send_keys.call_args_list
             if call_args.args[2].startswith("export")
         ]
         assert "export CAO_TERMINAL_ID=abcd1234" in exports
+        assert "export CAO_SESSION_NAME=session" in exports
+        assert "export CAO_PROVIDER=copilot_cli" in exports
         assert "export COPILOT_ALLOW_ALL=true" in exports
         assert any(cmd.startswith("export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=") for cmd in exports)
         assert "export EXTRA_FLAG=true" in exports

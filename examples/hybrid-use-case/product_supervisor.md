@@ -21,10 +21,14 @@ You triage new customer issues, orchestrate parallel investigation, and deliver 
 
 ## Runbook
 1. Discover your terminal id via `echo $CAO_TERMINAL_ID` and note it as `super_id`.
-2. Kick off quick log and metric reviews using `assign(agent_profile="log_analyst_codex", ...)`. Embed `super_id` so they know where to send results, and remind them to write artefacts to `examples/hybrid-use-case/output/`.
-3. When implementation support is required, trigger another `assign` for `implementation_codex`. Include repro steps, expectations, and the folder to drop artefacts.
-4. Sequence time-critical fixes with a short `handoff(agent_profile="release_captain_codex", ...)` (e.g., request “Ack + status”) once implementation returns a patch, then follow with `assign` for any longer validation.
-5. Use `send_message` sparingly for nudges or clarifications so Codex focus stays on execution.
+2. Kick off quick log and metric reviews using `assign(agent_profile="log_analyst_codex", message="... When DONE, send_message(receiver_id='{super_id}', message='COMPLETED: ...')")`. Embed `super_id` so they know where to send results, and remind them to write artefacts to `examples/hybrid-use-case/output/`.
+3. **STOP and WAIT** for log analyst to notify you via `send_message`. DO NOT poll or check.
+4. When implementation support is required, trigger another `assign` for `implementation_codex`. Include repro steps, expectations, the folder to drop artefacts, and callback instruction to notify `super_id` when done.
+5. **STOP and WAIT** for implementation agent to notify you. DO NOT poll or check.
+6. For release validation, use `assign(agent_profile="release_captain_codex", message="... When validation COMPLETE, send_message(receiver_id='{super_id}', message='VALIDATION COMPLETE: ...')")`.
+7. **STOP and WAIT** for validation results via `send_message`.
+
+⚠️ **CRITICAL**: DO NOT use `handoff` - it causes Codex to poll agents without waiting for completion. ALWAYS use `assign` + `send_message` pattern with explicit STOP and WAIT.
 
 ## Communication
 - Maintain a running task list in your buffer so you never lose track of outstanding worker updates.

@@ -10,6 +10,7 @@ A modern, real-time web interface for monitoring and controlling CLI Agent Orche
 - **Activity Summary**: Visual breakdown of agent statuses and activity
 - **Session Management**: Organize agents by sessions with expand/collapse views
 - **Responsive Design**: Dark-themed, modern UI optimized for development workflows
+- **Agent Provider Overrides**: Configure default providers per agent profile
 
 ## Architecture
 
@@ -99,6 +100,13 @@ npm run preview
 4. Optionally name the session
 5. Click "Launch Agent"
 
+### Configuring Agent Providers
+
+1. Click **Agent Providers** in the header to open the settings panel
+2. Pick a default provider for each agent profile (Code Supervisor, Developer, Reviewer)
+3. Click **Save** to persist the override or **Reset** to return to Amazon Q (`q_cli`)
+4. Saved overrides are automatically applied in the Control Panel, and profiles without overrides fall back to their default (Amazon Q) so you never carry over the wrong provider. You can still override the selection for a single launch.
+
 ### Monitoring Agents
 
 - **Dashboard**: View total sessions, agents, and status breakdown
@@ -134,6 +142,9 @@ The UI communicates with the backend via:
 - `GET /terminals/{id}/output` - Get terminal output
 - `POST /terminals/{id}/exit` - Send exit command
 - `DELETE /terminals/{id}` - Delete terminal
+- `GET /agent-provider-configs` - List agent provider overrides
+- `PUT /agent-provider-configs/{agent_profile}` - Save/update an override
+- `DELETE /agent-provider-configs/{agent_profile}` - Remove an override
 
 ### WebSocket Endpoint
 
@@ -187,10 +198,13 @@ ui/
 │   ├── api/
 │   │   └── client.ts          # API client functions
 │   ├── components/
+│   │   ├── AgentProviderSettings.tsx # Provider settings modal
 │   │   ├── Dashboard.tsx      # Overview stats
 │   │   ├── SessionList.tsx    # Session tree view
 │   │   ├── TerminalViewer.tsx # Terminal output viewer
 │   │   └── ControlPanel.tsx   # Launch agent form
+│   ├── constants/
+│   │   └── providers.ts       # Provider + agent profile metadata
 │   ├── styles/
 │   │   └── global.css         # Global styles and theme
 │   ├── types.ts               # TypeScript types
