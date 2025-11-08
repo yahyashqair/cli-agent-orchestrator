@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail, ExternalLink } from 'lucide-react'
+import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail, ExternalLink, Maximize2, Minimize2 } from 'lucide-react'
 import { api } from '../api/client'
 import Convert from 'ansi-to-html'
 import InboxViewer from './InboxViewer'
@@ -36,6 +36,8 @@ interface TerminalViewerProps {
   terminalId: string
   onClose: () => void
   focusTrigger?: number
+  isFullscreen?: boolean
+  onToggleFullscreen?: () => void
 }
 
 type TerminalUpdateMessage = {
@@ -46,7 +48,13 @@ type TerminalUpdateMessage = {
 
 type TabType = 'output' | 'messages';
 
-export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }: TerminalViewerProps) {
+export default function TerminalViewer({
+  terminalId,
+  onClose,
+  focusTrigger = 0,
+  isFullscreen = false,
+  onToggleFullscreen
+}: TerminalViewerProps) {
   const [input, setInput] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [isCleared, setIsCleared] = useState(false)
@@ -363,6 +371,15 @@ export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }
         </div>
 
         <div className="terminal-viewer-actions">
+          {onToggleFullscreen && (
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen (Ctrl+Shift+F)'}
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
           <button className="btn btn-sm btn-secondary" onClick={handleManualRefresh} title="Refresh output">
             <RotateCw size={14} />
           </button>

@@ -1,0 +1,158 @@
+.terminal-tabs-bar {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  background: color-mix(in srgb, var(--glass-panel) 60%, transparent);
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+
+.terminal-tabs-scroll {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+.terminal-tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.terminal-tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-tabs-scroll::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+
+.terminal-tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--glass-border) 150%, white);
+}
+
+.terminal-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: fit-content;
+  font-size: 0.8rem;
+}
+
+.terminal-tab-item:hover {
+  background: color-mix(in srgb, var(--glass-panel) 90%, transparent);
+  border-color: var(--glass-border);
+  transform: translateY(-1px);
+}
+
+.terminal-tab-item-active {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+    color-mix(in srgb, var(--accent-hover) 80%, transparent) 100%
+  );
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), var(--glow-primary);
+}
+
+.terminal-tab-item-active:hover {
+  transform: translateY(0);
+}
+
+.terminal-tab-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+  width: 12px;
+  height: 12px;
+}
+
+.terminal-tab-item-active .terminal-tab-icon {
+  opacity: 1;
+}
+
+.terminal-tab-label {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.terminal-tab-status {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.terminal-tab-status.status-idle {
+  background: color-mix(in srgb, var(--idle) 20%, transparent);
+  color: var(--idle);
+}
+
+.terminal-tab-status.status-processing {
+  background: color-mix(in srgb, var(--processing) 20%, transparent);
+  color: var(--processing);
+}
+
+.terminal-tab-status.status-completed {
+  background: color-mix(in srgb, var(--completed) 20%, transparent);
+  color: var(--completed);
+}
+
+.terminal-tab-status.status-error {
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  color: var(--error);
+}
+
+.terminal-tab-status.status-waiting_user_answer {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+}
+
+.terminal-tab-item-active .terminal-tab-status {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.terminal-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.15rem;
+  flex-shrink: 0;
+}
+
+.terminal-tab-close svg {
+  width: 10px;
+  height: 10px;
+}
+
+.terminal-tab-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.terminal-tab-item-active .terminal-tab-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
