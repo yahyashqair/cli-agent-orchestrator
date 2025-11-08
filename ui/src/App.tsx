@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronLeft, ChevronRight, PanelLeftClose, PanelRightClose } from 'lucide-react'
 import { api } from './api/client'
 import Dashboard, { AgentStatusPanel } from './components/Dashboard'
 import SessionList from './components/SessionList'
@@ -39,6 +40,8 @@ function App() {
   const [showControlPanel, setShowControlPanel] = useState(false)
   const [activeView, setActiveView] = useState<'sessions' | 'flows'>('sessions')
   const [showFlowEditor, setShowFlowEditor] = useState(false)
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
 
   const handleThemeChange = (nextTheme: Theme) => {
     setHasUserSelectedTheme(true)
@@ -176,13 +179,31 @@ function App() {
       <div className="app-content">
         {activeView === 'sessions' ? (
           <>
-            <aside className="sidebar glass-panel">
+            <aside className={`sidebar glass-panel ${leftPanelCollapsed ? 'collapsed' : ''}`}>
               <Dashboard sessions={sessions} />
               <AgentStatusPanel sessions={sessions} />
             </aside>
 
             <main className="main-content">
               <div className="session-terminal-layout">
+                {!leftPanelCollapsed && (
+                  <button
+                    className="panel-toggle panel-toggle-left"
+                    onClick={() => setLeftPanelCollapsed(true)}
+                    title="Collapse left panel"
+                  >
+                    <PanelLeftClose size={18} />
+                  </button>
+                )}
+                {leftPanelCollapsed && (
+                  <button
+                    className="panel-toggle panel-toggle-left-expand"
+                    onClick={() => setLeftPanelCollapsed(false)}
+                    title="Expand left panel"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                )}
                 <div className="terminal-column glass-panel">
                   {selectedTerminalId ? (
                     <TerminalViewer
@@ -197,7 +218,25 @@ function App() {
                     </div>
                   )}
                 </div>
-                <div className="session-column glass-panel">
+                {!rightPanelCollapsed && (
+                  <button
+                    className="panel-toggle panel-toggle-right"
+                    onClick={() => setRightPanelCollapsed(true)}
+                    title="Collapse right panel"
+                  >
+                    <PanelRightClose size={18} />
+                  </button>
+                )}
+                {rightPanelCollapsed && (
+                  <button
+                    className="panel-toggle panel-toggle-right-expand"
+                    onClick={() => setRightPanelCollapsed(false)}
+                    title="Expand right panel"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                )}
+                <div className={`session-column glass-panel ${rightPanelCollapsed ? 'collapsed' : ''}`}>
                   <SessionList
                     sessions={sessions}
                     selectedTerminalId={selectedTerminalId}

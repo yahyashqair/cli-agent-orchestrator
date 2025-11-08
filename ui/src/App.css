@@ -185,6 +185,15 @@
   padding: 1.5rem;
   border-radius: 28px;
   overflow-y: auto;
+  transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  border: none;
 }
 
 .session-terminal-layout {
@@ -194,6 +203,7 @@
   gap: 1.25rem;
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 
 .session-column {
@@ -205,6 +215,15 @@
   border-radius: 24px;
   overflow: hidden;
   min-height: 0;
+  transition: width 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+}
+
+.session-column.collapsed {
+  width: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  border: none;
 }
 
 .terminal-column {
@@ -412,6 +431,60 @@
   }
 }
 
+/* Panel Toggle Buttons */
+.panel-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  padding: 0.6rem;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--glass-panel-strong) 95%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 960px) {
+  .panel-toggle {
+    display: flex;
+  }
+}
+
+.panel-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25), var(--glow-primary);
+}
+
+.panel-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.panel-toggle-left {
+  left: 1rem;
+}
+
+.panel-toggle-right {
+  right: 1rem;
+}
+
+.panel-toggle-left-expand {
+  left: 0.5rem;
+}
+
+.panel-toggle-right-expand {
+  right: 0.5rem;
+}
+
 @media (min-width: 960px) {
   .session-terminal-layout {
     flex-direction: row;
@@ -436,5 +509,13 @@
 
   .session-terminal-layout {
     flex-direction: column;
+  }
+
+  /* Ensure panels are visible on mobile even if collapsed state is active */
+  .sidebar.collapsed,
+  .session-column.collapsed {
+    width: 100%;
+    padding: 1.25rem;
+    opacity: 1;
   }
 }

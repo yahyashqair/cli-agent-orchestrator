@@ -100,8 +100,8 @@
 
 .inbox-filter-select {
   padding: 0.45rem 0.9rem;
-  background: color-mix(in srgb, var(--glass-panel) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--glass-border) 80%, transparent);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 16px;
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -113,6 +113,11 @@
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.inbox-filter-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .inbox-sort {

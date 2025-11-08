@@ -97,8 +97,8 @@
 }
 
 .message-content {
-  background: rgba(5, 6, 11, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--glass-panel) 90%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent);
   border-radius: 16px;
   padding: 1rem;
   margin-bottom: 0.85rem;
