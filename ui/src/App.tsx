@@ -304,8 +304,11 @@ function App() {
           <>
             {!isFullscreen && (
               <aside className={`sidebar glass-panel ${leftPanelCollapsed ? 'collapsed' : ''}`}>
-                <Dashboard sessions={safeSessions} />
-                <AgentStatusPanel sessions={safeSessions} />
+                <div className="sidebar-scrollable-content">
+                  <Dashboard sessions={safeSessions} />
+                  <AgentStatusPanel sessions={safeSessions} />
+                </div>
+                <ArchivedSessionList sessions={archivedSessions} />
               </aside>
             )}
 
@@ -385,9 +388,6 @@ function App() {
                       selectedTerminalId={selectedTerminalId}
                       onTerminalSelect={handleTerminalSelect}
                     />
-                    <div style={{ marginTop: '16px' }}>
-                      <ArchivedSessionList sessions={archivedSessions} />
-                    </div>
                   </div>
                 )}
               </div>

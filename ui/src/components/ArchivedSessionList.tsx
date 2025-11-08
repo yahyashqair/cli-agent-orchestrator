@@ -57,6 +57,7 @@ function formatDuration(timestamp: string): string {
 
 export default function ArchivedSessionList({ sessions }: ArchivedSessionListProps) {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
   const sortedSessions = useMemo(
     () => [...sessions].sort((a, b) =>
@@ -75,26 +76,42 @@ export default function ArchivedSessionList({ sessions }: ArchivedSessionListPro
     setExpandedSessions(newExpanded)
   }
 
-  if (sortedSessions.length === 0) {
-    return (
-      <div className="session-list">
-        <div className="session-list-empty frosted-card">
-          <Archive size={32} style={{ opacity: 0.5, marginBottom: '8px' }} />
-          <p>No archived sessions</p>
-          <p className="text-muted">Archived sessions will appear here</p>
+  return (
+    <div className="archived-sessions-wrapper">
+      <div
+        className="archived-header"
+        onClick={() => sortedSessions.length > 0 && setIsCollapsed(!isCollapsed)}
+        style={{
+          cursor: sortedSessions.length > 0 ? 'pointer' : 'default',
+          userSelect: 'none'
+        }}
+      >
+        <div className="session-list-title">
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minWidth: '20px',
+            opacity: sortedSessions.length === 0 ? 0.3 : 1
+          }}>
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          </span>
+          <Archive size={16} style={{ marginLeft: '4px', marginRight: '6px', opacity: 0.7 }} />
+          <span>Archived Sessions</span>
+          <span className="archived-count" style={{
+            marginLeft: '8px',
+            fontSize: '0.75rem',
+            opacity: 0.7,
+            background: 'var(--glass-panel)',
+            padding: '2px 8px',
+            borderRadius: '999px'
+          }}>
+            {sortedSessions.length}
+          </span>
         </div>
       </div>
-    )
-  }
 
-  return (
-    <div className="session-list">
-      <div className="session-list-header">
-        <h2 className="session-list-title">
-          <Archive size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-          Archived Sessions
-        </h2>
-      </div>
+      {!isCollapsed && sortedSessions.length > 0 && (
+        <div className="archived-sessions-content">
       {sortedSessions.map((session, sessionIndex) => {
         const sessionKey = session?.name
           ? `${session.name}-${session.archived_at}`
@@ -120,7 +137,7 @@ export default function ArchivedSessionList({ sessions }: ArchivedSessionListPro
             </div>
 
             {isExpanded && (
-              <div className="archived-session-details" style={{ padding: '12px', backgroundColor: 'var(--bg-secondary)' }}>
+              <div className="archived-session-details" style={{ padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px' }}>
                 <div style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
                   <div>Archived at: {formatTimestamp(session.archived_at)}</div>
                   {session.archived_by && <div>Archived by: {session.archived_by}</div>}
@@ -170,6 +187,21 @@ export default function ArchivedSessionList({ sessions }: ArchivedSessionListPro
           </div>
         )
       })}
+        </div>
+      )}
+
+      {!isCollapsed && sortedSessions.length === 0 && (
+        <div style={{
+          padding: '1.5rem',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: 'var(--text-muted)',
+          opacity: 0.7
+        }}>
+          <Archive size={24} style={{ opacity: 0.5, marginBottom: '8px' }} />
+          <div>No archived sessions</div>
+        </div>
+      )}
     </div>
   )
 }
