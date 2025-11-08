@@ -224,7 +224,12 @@ export default function SessionList({
                     <div className="terminal-info">
                       <TerminalIcon size={14} />
                       <div className="terminal-details">
-                        <div className="terminal-profile">{terminal.agent_profile}</div>
+                        <div className="terminal-profile-row">
+                          <div className="terminal-profile">{terminal.agent_profile}</div>
+                          <span className="terminal-id" title={`Terminal ID: ${terminal.id}`}>
+                            {terminal.id}
+                          </span>
+                        </div>
                         <div className="terminal-meta">
                           <span className="terminal-provider">{terminal.provider}</span>
                           <span className={`status-badge status-${terminal.status.toLowerCase()}`}>

@@ -166,10 +166,30 @@
   min-width: 0;
 }
 
+.terminal-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 .terminal-profile {
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-id {
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
+  color: var(--text-secondary);
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
