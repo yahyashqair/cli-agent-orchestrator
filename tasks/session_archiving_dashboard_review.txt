@@ -1,0 +1,41 @@
+# Task: Review Session Archiving + Dashboard Fixes
+
+## Context
+The developer delivered the implementation for `/tasks/session_archiving_dashboard.txt`.
+Key features:
+- Session archiving workflow + archived session API/UI.
+- Pending message counts exclude archived sessions.
+- Status casing normalized to uppercase so dashboard active/idle counters work.
+- New documentation under `docs/session-archiving.md`.
+- Added backend + frontend tests (but the developer report shows only 7/13 tests passing).
+
+## Review Expectations
+1. **Code Quality & Coverage**
+   - Verify backend changes in:
+     - `src/cli_agent_orchestrator/clients/database.py`
+     - `src/cli_agent_orchestrator/services/session_service.py`
+     - `src/cli_agent_orchestrator/api/main.py`
+     - new tests under `test/api/test_sessions_archival_unit.py`, `test/clients/`, `test/services/test_terminal_service_unit.py`
+   - Verify UI changes in:
+     - `ui/src/App.tsx`
+     - `ui/src/api/client.ts`
+     - `ui/src/components/Dashboard.tsx`
+     - `ui/src/components/SessionList.tsx`
+     - `ui/src/components/ArchivedSessionList.tsx`
+
+2. **Feature Behavior**
+   - Ensure archived sessions never appear in the active list and are fully viewable via the new component/API.
+   - Confirm pending message counts filter archived sessions when requested.
+   - Confirm status normalization fixes the Active/Idle counters.
+   - Check documentation accuracy (`README.md`, `docs/session-archiving.md`).
+
+3. **Testing & Validation**
+   - Identify which of the 13 tests failed and whether they must be addressed before merge.
+   - Confirm instructions for running tests/formatters are followed or note gaps.
+
+## Deliverable
+Provide a code review-style report:
+- Enumerate findings (bugs, regressions, missing cases, style issues) with file references.
+- Note any blocking issues tied to the failing tests or unimplemented requirements.
+- Highlight residual risks or follow-up tasks if everything looks good.
+

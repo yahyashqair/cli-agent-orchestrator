@@ -107,7 +107,7 @@ export default function TerminalViewer({ terminalId, onClose, focusTrigger = 0 }
   // Fetch pending messages count for badge
   const { data: pendingMessagesCount = 0 } = useQuery({
     queryKey: ['pending-messages-count', terminalId],
-    queryFn: () => api.getPendingMessagesCount(terminalId),
+    queryFn: () => api.getPendingMessagesCount({ terminalId }),
     refetchInterval: 5000, // Auto-refresh every 5 seconds
   })
 

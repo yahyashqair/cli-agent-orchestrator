@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, PanelLeftClose, PanelRightClose } from 'luci
 import { api } from './api/client'
 import Dashboard, { AgentStatusPanel } from './components/Dashboard'
 import SessionList from './components/SessionList'
+import ArchivedSessionList from './components/ArchivedSessionList'
 import TerminalViewer from './components/TerminalViewer'
 import ControlPanel from './components/ControlPanel'
 import FlowViewer from './components/FlowViewer'
@@ -56,6 +57,12 @@ function App() {
   const { data: sessions, refetch } = useQuery({
     queryKey: ['sessions'],
     queryFn: api.listSessions,
+  })
+
+  const { data: archivedSessions = [] } = useQuery({
+    queryKey: ['archived-sessions'],
+    queryFn: api.listArchivedSessions,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   })
 
   useEffect(() => {
@@ -116,6 +123,8 @@ function App() {
       </>
     )
   }
+
+  const safeSessions = Array.isArray(sessions) ? sessions : []
 
   const handleTerminalSelect = (id: string) => {
     if (!id) {
@@ -192,8 +201,8 @@ function App() {
         {activeView === 'sessions' ? (
           <>
             <aside className={`sidebar glass-panel ${leftPanelCollapsed ? 'collapsed' : ''}`}>
-              <Dashboard sessions={sessions} />
-              <AgentStatusPanel sessions={sessions} />
+              <Dashboard sessions={safeSessions} />
+              <AgentStatusPanel sessions={safeSessions} />
             </aside>
 
             <main className="main-content">
@@ -250,10 +259,13 @@ function App() {
                 )}
                 <div className={`session-column glass-panel ${rightPanelCollapsed ? 'collapsed' : ''}`}>
                   <SessionList
-                    sessions={sessions}
+                    sessions={safeSessions}
                     selectedTerminalId={selectedTerminalId}
                     onTerminalSelect={handleTerminalSelect}
                   />
+                  <div style={{ marginTop: '16px' }}>
+                    <ArchivedSessionList sessions={archivedSessions} />
+                  </div>
                 </div>
               </div>
             </main>

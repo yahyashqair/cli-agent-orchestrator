@@ -8,11 +8,16 @@ interface DashboardProps {
   sessions: Session[]
 }
 
+const ensureSessionsArray = (sessions: Session[] | undefined | null): Session[] =>
+  Array.isArray(sessions) ? sessions : []
+
 export default function Dashboard({ sessions }: DashboardProps) {
-  // Fetch pending messages count across all terminals
+  const safeSessions = ensureSessionsArray(sessions)
+
+  // Fetch pending messages count across all terminals (exclude archived)
   const { data: pendingMessagesCount = 0 } = useQuery({
     queryKey: ['pending-messages-count'],
-    queryFn: () => api.getPendingMessagesCount(),
+    queryFn: () => api.getPendingMessagesCount({ includeArchived: false }), // exclude archived sessions
     refetchInterval: 5000, // Auto-refresh every 5 seconds
   })
 
@@ -24,11 +29,11 @@ export default function Dashboard({ sessions }: DashboardProps) {
   })
 
   const stats = useMemo(() => {
-    const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
+    const terminals = safeSessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
     const enabledFlows = flows.filter(flow => flow.enabled).length
 
     return {
-      totalSessions: sessions.length,
+      totalSessions: safeSessions.length,
       totalTerminals: terminals.length,
       activeTerminals: terminals.filter(t =>
         t.status === 'PROCESSING' || t.status === 'WAITING_USER_ANSWER'
@@ -39,7 +44,7 @@ export default function Dashboard({ sessions }: DashboardProps) {
       totalFlows: flows.length,
       enabledFlows,
     }
-  }, [sessions, flows])
+  }, [safeSessions, flows])
 
   return (
     <div className="dashboard">
@@ -87,8 +92,12 @@ export default function Dashboard({ sessions }: DashboardProps) {
 }
 
 function useStatusBreakdown(sessions: Session[]) {
+  const safeSessions = ensureSessionsArray(sessions)
+
   return useMemo(() => {
-    const terminals = sessions.flatMap(s => s.terminals || []).filter(t => t !== null && t !== undefined)
+    const terminals = safeSessions
+      .flatMap(s => s.terminals || [])
+      .filter(t => t !== null && t !== undefined)
     if (terminals.length === 0) return []
 
     const statusCounts: Record<string, number> = {}
@@ -104,7 +113,7 @@ function useStatusBreakdown(sessions: Session[]) {
         count,
         percentage: (count / terminals.length) * 100,
       }))
-  }, [sessions])
+  }, [safeSessions])
 }
 
 export function AgentStatusPanel({ sessions }: DashboardProps) {

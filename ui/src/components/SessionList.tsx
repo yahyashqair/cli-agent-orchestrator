@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Trash2, Terminal as TerminalIcon, Clock, Download } from 'lucide-react'
+import { ChevronDown, ChevronRight, Trash2, Terminal as TerminalIcon, Clock, Download, Archive } from 'lucide-react'
 import { api } from '../api/client'
 import type { Session } from '../types'
 import './SessionList.css'
@@ -61,6 +61,17 @@ export default function SessionList({
     },
   })
 
+  const archiveSessionMutation = useMutation({
+    mutationFn: (sessionName: string) => api.archiveSession(sessionName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['archived-sessions'] })
+    },
+    onError: (error: Error) => {
+      alert(`Failed to archive session: ${error.message}`)
+    },
+  })
+
   const deleteTerminalMutation = useMutation({
     mutationFn: api.deleteTerminal,
     onSuccess: () => {
@@ -76,6 +87,13 @@ export default function SessionList({
       newExpanded.add(sessionName)
     }
     setExpandedSessions(newExpanded)
+  }
+
+  const handleArchiveSession = (sessionName: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm(`Archive session "${sessionName}"? This will snapshot all terminals and remove the session from the active list.`)) {
+      archiveSessionMutation.mutate(sessionName)
+    }
   }
 
   const handleDeleteSession = (sessionName: string, e: React.MouseEvent) => {
@@ -188,11 +206,12 @@ export default function SessionList({
           </button>
         </div>
       </div>
-      {sortedSessions.map(session => {
+      {sortedSessions.map((session, sessionIndex) => {
+        const sessionKey = session?.name ? `${session.name}` : `session-${sessionIndex}`
         const isExpanded = expandedSessions.has(session.name)
 
         return (
-          <div key={session.name} className="session-item">
+          <div key={sessionKey} className="session-item">
             <div
               className="session-header frosted-card"
               onClick={() => toggleSession(session.name)}
@@ -202,25 +221,38 @@ export default function SessionList({
                 <span className="session-name">{session.name}</span>
                 <span className="terminal-count">{session.terminal_count}</span>
               </div>
-              <button
-                className="btn-icon"
-                onClick={(e) => handleDeleteSession(session.name, e)}
-                title="Delete session"
-              >
-                <Trash2 size={14} />
-              </button>
+              <div className="session-header-actions">
+                <button
+                  className="btn-icon"
+                  onClick={(e) => handleArchiveSession(session.name, e)}
+                  title="Archive session"
+                >
+                  <Archive size={14} />
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={(e) => handleDeleteSession(session.name, e)}
+                  title="Delete session"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
 
             {isExpanded && (
               <div className="terminal-list">
-                {(session.terminals || []).map(terminal => (
-                  <div
-                    key={terminal.id}
-                    className={`terminal-item glass-panel ${
-                      selectedTerminalId === terminal.id ? 'selected' : ''
-                    }`}
-                    onClick={() => onTerminalSelect(terminal.id)}
-                  >
+                {(session.terminals || []).map((terminal, terminalIndex) => {
+                  const terminalKey =
+                    terminal?.id || `${sessionKey}-terminal-${terminalIndex}`
+
+                  return (
+                    <div
+                      key={terminalKey}
+                      className={`terminal-item glass-panel ${
+                        selectedTerminalId === terminal.id ? 'selected' : ''
+                      }`}
+                      onClick={() => onTerminalSelect(terminal.id)}
+                    >
                     <div className="terminal-info">
                       <TerminalIcon size={14} />
                       <div className="terminal-details">
@@ -250,7 +282,8 @@ export default function SessionList({
                       <Trash2 size={12} />
                     </button>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

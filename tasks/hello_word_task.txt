@@ -1,0 +1,7 @@
+Task: Print the phrase "hello word" to stdout from a minimal Python script in this repository.
+
+Requirements:
+1. Create (or update) a Python file under /home/yahyashqair/anonDev/cli-agent-orchestrator/tmp/ named hello_word.py.
+2. The script must consist of a main guard and print the exact text: hello word
+3. Do not modify any other files.
+4. Report back with the absolute path to the script and a brief note confirming it prints the required phrase.

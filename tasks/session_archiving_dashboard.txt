@@ -1,0 +1,85 @@
+# Task: Session Archiving + Dashboard Fixes
+
+## Background
+- Active sessions currently come straight from tmux via `services/session_service.py::list_sessions()`, so anything still attached shows up in the UI under `SessionList`.
+- There is no way to archive a completed session: we can only delete it (which discards all terminal metadata) or keep it cluttering the active list.
+- `/inbox/messages/pending/count` counts every pending message in the inbox table, so the Overview widget shows pending messages for inactive or already-finished sessions as well.
+- The Overview "Active" and "Idle" cards never increment because API responses return lowercase status strings, while `ui/src/types.ts` and `Dashboard.tsx` expect uppercase variants (e.g., `PROCESSING`).
+
+## Goals
+1. Add an "Archive session" workflow that snapshots all terminals under a session, removes the tmux session from the active list, and lets the UI display archived sessions separately.
+2. Update the pending-messages counter so the Overview only reports pending messages that belong to active (non-archived) sessions by default.
+3. Fix the status mismatch so Active/Idle counters in the Overview reflect reality.
+
+## Detailed Requirements
+
+### Data model + persistence
+- Extend `clients/database.py`:
+  - Introduce an `ArchivedSessionModel` (table `archived_sessions`) with columns: `id` (PK), `name` (unique), `archived_at` (DateTime), `archived_by` (nullable string), `original_created_at` (DateTime, nullable), and `metadata` (JSON/text blob for future use).
+  - Introduce an `ArchivedTerminalModel` (table `archived_terminals`) with columns: `id` (PK), `session_name` (FK via plain string), `terminal_id` (original terminal id), `provider`, `agent_profile`, `status`, `created_at`, `last_active`, `full_permissions`, and `working_directory`.
+  - Add helper functions:
+    - `archive_session(session_name: str, archived_by: str | None = None) -> ArchivedSessionModel`: fetch all rows from `terminals` for the session, create the archived session row, copy each terminal into `archived_terminals`, then delete the originals.
+    - `list_archived_sessions() -> List[Dict]` returning the archived session metadata plus embedded terminals (structure should mirror what `/sessions` returns, but include `archived_at`).
+    - `get_archived_session(session_name: str) -> Dict` (single session detail).
+    - `delete_archived_session(session_name: str)` if you need to support cleanup (does not need UI yet but keeps API flexible).
+  - Wire migrations in `init_db()` to create the two new tables if they do not exist (similar to existing lightweight migrations).
+
+### Services + API
+- `services/session_service.py`:
+  - Add `archive_session(session_name: str, archived_by: str | None = None)` that orchestrates:
+    1. Validate the tmux session exists.
+    2. Snapshot terminal metadata via `list_terminals_by_session` + provider statuses.
+    3. Call the new DB helper to persist the archive.
+    4. Kill the tmux session (`tmux_client.kill_session`) so it no longer appears in `tmux_client.list_sessions()`.
+  - Add `list_archived_sessions()` / `get_archived_session()` wrappers that simply call the DB helpers and format responses (e.g., ensure ISO timestamps).
+  - Update `list_sessions()` to skip any session name that is already archived (helps if tmux still has a stale entry) and to surface terminal statuses in uppercase (see note below).
+- `api/main.py`:
+  - New endpoints:
+    - `POST /sessions/{session_name}/archive` → calls `session_service.archive_session()` and returns the archived snapshot.
+    - `GET /sessions/archived` → returns `session_service.list_archived_sessions()`.
+    - `GET /sessions/archived/{session_name}` → returns a single archived session or 404 if missing.
+  - Existing `/sessions` list endpoint should continue to return *only* active sessions (after the `list_sessions()` change).
+  - `/inbox/messages/pending/count` should accept an `include_archived` query parameter (default `true` for backward compatibility). When `include_archived=false`, restrict the count to receiver terminals that belong to active sessions (you already have the tmux session on each terminal row). A simple approach: fetch all active session names via `session_service.list_sessions()`, collect their terminal IDs, and count only messages with `receiver_id` in that set. Avoid N+1 DB queries.
+
+### Status casing fix
+- Normalize status serialization so everything the UI receives is uppercase:
+  - In `session_service.list_sessions()` and any other serializer that emits `terminal["status"]`, convert to `status.upper()` after verifying it is non-empty.
+  - Ensure `/terminals/{id}` and `/sessions/{session}/terminals` responses follow the same casing (update the dict comprehension around line ~205 in `clients/database.py` so `status` is either stored uppercase or computed on the fly).
+  - Update any relevant tests/fixtures that hardcode lowercase strings.
+
+### UI changes (`ui/src`)
+- `api/client.ts`: add methods for the new archive endpoints (list archived sessions, get archived session, archive session).
+- `SessionList.tsx`:
+  - Add an "Archive" action (e.g., button next to the trash icon) that calls the new `api.archiveSession(sessionName)` endpoint; confirm with the user before archiving.
+  - After archiving, invalidate both the `['sessions']` and `['archived-sessions']` queries.
+  - Remove archived sessions from the main list (handled server-side, but ensure the component copy says "Active Sessions").
+- Add a new component (e.g., `ArchivedSessionList.tsx`) that renders archived sessions (collapsible list similar to the active view). It should show `archived_at`, saved terminals, and be read-only for now.
+- `App.tsx`: fetch archived sessions via React Query (`useQuery({ queryKey: ['archived-sessions'], queryFn: api.listArchivedSessions, refetchInterval: 30000 })`) and render the new component somewhere under the dashboard.
+- `Dashboard.tsx`:
+  - Update the pending message widget to call `api.getPendingMessagesCount(false)` (pass `include_archived=false`).
+  - Fix the Active/Idle counters to handle uppercase statuses only (after the backend fix, this becomes a simple equality check but guard with `t.status?.toUpperCase()` to be safe).
+
+### Tests
+- Backend:
+  - Add unit tests for the new archival helpers (e.g., `test/clients/test_database_archival_unit.py` or extend an existing session test file) plus service-level tests to ensure archiving kills the tmux session and snapshot data is preserved.
+  - Extend API tests (`test/api/test_sessions_unit.py` if present, otherwise add) covering:
+    - `POST /sessions/{name}/archive` happy path and 404 when the session is missing.
+    - `GET /sessions/archived` returning archived data.
+    - Pending message count filter honoring `include_archived=false`.
+  - Update/increase coverage for the status casing change (assert the API returns uppercase strings).
+- UI:
+  - Update any TypeScript types if needed.
+  - Add at least one React Testing Library test (if feasible) that renders `Dashboard` with mocked API data to confirm the counters compute correctly, or document manual verification steps if you skip component tests.
+
+### Documentation
+- Update `README.md` (and `ui/README.md` if it documents the dashboard) to explain the new Archive workflow.
+- Add a short note under `docs/` describing how archived sessions are stored and how to retrieve them via API.
+
+### Validation / Manual Steps
+- Run `uv run pytest -v` (or focused targets if runtime is long) plus `uv run black src/ test/`, `uv run isort src/ test/`, and `uv run mypy src/`.
+- For the UI, run `npm install` (if needed) and `npm run build` or `npm run test` (document whichever you run).
+- Manually verify via the UI that:
+  1. The Archive button hides a session from the active list and the session appears under Archived Sessions with its terminals.
+  2. The Overview pending-messages card changes when you toggle archived/active sessions.
+  3. Active/Idle counters increment after launching agents with different statuses.
+

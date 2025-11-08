@@ -1,6 +1,8 @@
 import axios from 'axios';
 import type { Terminal, Session, TerminalOutput, InboxMessage, Flow, AgentProviderConfig } from '../types';
 
+// Point all HTTP calls through the Vite proxy (or equivalent) so
+// they consistently reach the backend instead of the UI dev server.
 const API_BASE = '/api';
 
 export const api = {
@@ -42,6 +44,23 @@ export const api = {
 
   deleteSession: async (sessionName: string) => {
     const { data } = await axios.delete(`${API_BASE}/sessions/${sessionName}`);
+    return data;
+  },
+
+  archiveSession: async (sessionName: string, archivedBy?: string) => {
+    const { data } = await axios.post(`${API_BASE}/sessions/${sessionName}/archive`, null, {
+      params: { archived_by: archivedBy }
+    });
+    return data;
+  },
+
+  listArchivedSessions: async () => {
+    const { data } = await axios.get(`${API_BASE}/sessions/archived`);
+    return data;
+  },
+
+  getArchivedSession: async (sessionName: string) => {
+    const { data } = await axios.get(`${API_BASE}/sessions/archived/${sessionName}`);
     return data;
   },
 
@@ -142,7 +161,10 @@ export const api = {
     }
   },
 
-  getPendingMessagesCount: async (terminalId?: string): Promise<number> => {
+  getPendingMessagesCount: async ({
+    includeArchived = true,
+    terminalId,
+  }: { includeArchived?: boolean; terminalId?: string } = {}): Promise<number> => {
     try {
       if (terminalId) {
         const { data } = await axios.get(
@@ -150,7 +172,9 @@ export const api = {
         );
         return data.count;
       } else {
-        const { data } = await axios.get(`${API_BASE}/inbox/messages/pending/count`);
+        const { data } = await axios.get(`${API_BASE}/inbox/messages/pending/count`, {
+          params: { include_archived: includeArchived }
+        });
         return data.count;
       }
     } catch (error) {

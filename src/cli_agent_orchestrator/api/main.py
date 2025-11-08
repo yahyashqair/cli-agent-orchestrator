@@ -269,6 +269,47 @@ async def list_sessions() -> List[Dict]:
         )
 
 
+@app.get("/sessions/archived")
+async def list_archived_sessions() -> List[Dict]:
+    """List all archived sessions."""
+    try:
+        return session_service.list_archived_sessions()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list archived sessions: {str(e)}",
+        )
+
+
+@app.get("/sessions/archived/{session_name}")
+async def get_archived_session(session_name: str) -> Dict:
+    """Get a specific archived session."""
+    try:
+        return session_service.get_archived_session(session_name)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get archived session: {str(e)}",
+        )
+
+
+@app.post("/sessions/{session_name}/archive")
+async def archive_session(session_name: str, archived_by: Optional[str] = None) -> Dict:
+    """Archive a session by snapshotting terminals and killing the tmux session."""
+    try:
+        result = session_service.archive_session(session_name, archived_by)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to archive session: {str(e)}",
+        )
+
+
 @app.get("/sessions/{session_name}")
 async def get_session(session_name: str) -> Dict:
     try:
@@ -581,12 +622,35 @@ async def get_inbox_messages(
 
 
 @app.get("/inbox/messages/pending/count")
-async def get_pending_messages_count() -> Dict:
-    """Get total count of pending messages across all terminals."""
-    try:
-        with SessionLocal() as session:
-            count = session.query(InboxModel).filter(InboxModel.status == "pending").count()
+async def get_pending_messages_count(include_archived: bool = Query(default=True)) -> Dict:
+    """
+    Get total count of pending messages across all terminals.
 
+    Args:
+        include_archived: If False, only count pending messages for active (non-archived) sessions.
+                         Default is True for backward compatibility.
+    """
+    try:
+        with SessionLocal() as db_session:
+            query = db_session.query(InboxModel).filter(InboxModel.status == "pending")
+
+            # If include_archived is False, filter to only active sessions
+            if not include_archived:
+                # Get all active session names
+                active_sessions = session_service.list_sessions()
+                active_terminal_ids = set()
+                for sess in active_sessions:
+                    for terminal in sess.get("terminals", []):
+                        active_terminal_ids.add(terminal["id"])
+
+                # Filter messages to only those with receiver_id in active terminals
+                if active_terminal_ids:
+                    query = query.filter(InboxModel.receiver_id.in_(active_terminal_ids))
+                else:
+                    # No active terminals, return 0
+                    return {"count": 0, "pending_messages": 0}
+
+            count = query.count()
             return {"count": count, "pending_messages": count}
     except Exception as e:
         logger.error(f"Error fetching pending messages count: {e}")

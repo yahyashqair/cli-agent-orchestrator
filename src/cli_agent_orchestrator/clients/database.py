@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, create_engine, text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from cli_agent_orchestrator.constants import DATABASE_URL, DB_DIR
@@ -69,6 +69,36 @@ class AgentProviderConfigModel(Base):
 
     agent_profile = Column(String, primary_key=True)
     provider = Column(String, nullable=False)
+
+
+class ArchivedSessionModel(Base):
+    """SQLAlchemy model for archived sessions."""
+
+    __tablename__ = "archived_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    archived_at = Column(DateTime, default=datetime.now, nullable=False)
+    archived_by = Column(String, nullable=True)
+    original_created_at = Column(DateTime, nullable=True)
+    extra_metadata = Column(Text, nullable=True)  # JSON blob for future use
+
+
+class ArchivedTerminalModel(Base):
+    """SQLAlchemy model for archived terminals."""
+
+    __tablename__ = "archived_terminals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_name = Column(String, nullable=False)  # FK via plain string
+    terminal_id = Column(String, nullable=False)  # original terminal id
+    provider = Column(String, nullable=False)
+    agent_profile = Column(String, nullable=True)
+    status = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    last_active = Column(DateTime, nullable=True)
+    full_permissions = Column(Boolean, nullable=False, default=False)
+    working_directory = Column(String, nullable=True)
 
 
 # Module-level singletons
@@ -142,6 +172,52 @@ def init_db():
             logger.info("Ensured agent_provider_configs table exists")
     except Exception as exc:
         logger.warning("Failed to ensure agent_provider_configs table exists: %s", exc)
+
+    # Lightweight migration: ensure archived_sessions table exists
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS archived_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL UNIQUE,
+                        archived_at TEXT NOT NULL,
+                        archived_by TEXT,
+                        original_created_at TEXT,
+                        extra_metadata TEXT
+                    )
+                    """
+                )
+            )
+            logger.info("Ensured archived_sessions table exists")
+    except Exception as exc:
+        logger.warning("Failed to ensure archived_sessions table exists: %s", exc)
+
+    # Lightweight migration: ensure archived_terminals table exists
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS archived_terminals (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_name TEXT NOT NULL,
+                        terminal_id TEXT NOT NULL,
+                        provider TEXT NOT NULL,
+                        agent_profile TEXT,
+                        status TEXT,
+                        created_at TEXT,
+                        last_active TEXT,
+                        full_permissions BOOLEAN NOT NULL DEFAULT 0,
+                        working_directory TEXT
+                    )
+                    """
+                )
+            )
+            logger.info("Ensured archived_terminals table exists")
+    except Exception as exc:
+        logger.warning("Failed to ensure archived_terminals table exists: %s", exc)
 
 
 def create_terminal(
@@ -500,3 +576,211 @@ def delete_agent_provider_config(agent_profile: str) -> bool:
         )
         db.commit()
         return deleted > 0
+
+
+# Archive functions
+def archive_session(session_name: str, archived_by: Optional[str] = None) -> Dict:
+    """
+    Archive a session by snapshotting all terminals and creating archive records.
+    Does not delete tmux session or terminals - caller must handle that.
+    Returns the archived session data.
+    """
+    with SessionLocal() as db:
+        # Check if session is already archived
+        existing = (
+            db.query(ArchivedSessionModel).filter(ArchivedSessionModel.name == session_name).first()
+        )
+        if existing:
+            raise ValueError(f"Session '{session_name}' is already archived")
+
+        # Get all terminals for this session
+        terminals = db.query(TerminalModel).filter(TerminalModel.tmux_session == session_name).all()
+
+        # Determine original created_at (use earliest terminal created_at)
+        original_created_at = None
+        if terminals:
+            original_created_at = min(t.created_at for t in terminals if t.created_at)
+
+        # Create archived session record
+        archived_session = ArchivedSessionModel(
+            name=session_name,
+            archived_by=archived_by,
+            original_created_at=original_created_at,
+        )
+        db.add(archived_session)
+        db.flush()  # Get the ID
+
+        # Create archived terminal records
+        archived_terminals = []
+        for terminal in terminals:
+            archived_terminal = ArchivedTerminalModel(
+                session_name=session_name,
+                terminal_id=terminal.id,
+                provider=terminal.provider,
+                agent_profile=terminal.agent_profile,
+                status="UNKNOWN",  # Will be updated by caller with actual status
+                created_at=terminal.created_at,
+                last_active=terminal.last_active,
+                full_permissions=terminal.full_permissions,
+                working_directory=terminal.working_directory,
+            )
+            db.add(archived_terminal)
+            archived_terminals.append(archived_terminal)
+
+        # Delete original terminal records
+        db.query(TerminalModel).filter(TerminalModel.tmux_session == session_name).delete()
+
+        db.commit()
+
+        # Return archived session data
+        return {
+            "id": archived_session.id,
+            "name": archived_session.name,
+            "archived_at": archived_session.archived_at.isoformat(),
+            "archived_by": archived_session.archived_by,
+            "original_created_at": (
+                original_created_at.isoformat() if original_created_at else None
+            ),
+            "terminals": [
+                {
+                    "id": t.terminal_id,
+                    "provider": t.provider,
+                    "agent_profile": t.agent_profile,
+                    "status": t.status,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    "last_active": t.last_active.isoformat() if t.last_active else None,
+                    "full_permissions": t.full_permissions,
+                    "working_directory": t.working_directory,
+                }
+                for t in archived_terminals
+            ],
+        }
+
+
+def update_archived_terminal_status(session_name: str, terminal_id: str, status: str) -> bool:
+    """Update status for an archived terminal."""
+    with SessionLocal() as db:
+        terminal = (
+            db.query(ArchivedTerminalModel)
+            .filter(
+                ArchivedTerminalModel.session_name == session_name,
+                ArchivedTerminalModel.terminal_id == terminal_id,
+            )
+            .first()
+        )
+        if terminal:
+            terminal.status = status
+            db.commit()
+            return True
+        return False
+
+
+def list_archived_sessions() -> List[Dict]:
+    """List all archived sessions with their terminals."""
+    with SessionLocal() as db:
+        sessions = (
+            db.query(ArchivedSessionModel).order_by(ArchivedSessionModel.archived_at.desc()).all()
+        )
+
+        result = []
+        for session in sessions:
+            terminals = (
+                db.query(ArchivedTerminalModel)
+                .filter(ArchivedTerminalModel.session_name == session.name)
+                .all()
+            )
+
+            result.append(
+                {
+                    "name": session.name,
+                    "archived_at": session.archived_at.isoformat(),
+                    "archived_by": session.archived_by,
+                    "original_created_at": (
+                        session.original_created_at.isoformat()
+                        if session.original_created_at
+                        else None
+                    ),
+                    "terminal_count": len(terminals),
+                    "terminals": [
+                        {
+                            "id": t.terminal_id,
+                            "provider": t.provider,
+                            "agent_profile": t.agent_profile,
+                            "status": t.status,
+                            "created_at": t.created_at.isoformat() if t.created_at else None,
+                            "last_active": t.last_active.isoformat() if t.last_active else None,
+                            "full_permissions": t.full_permissions,
+                            "working_directory": t.working_directory,
+                        }
+                        for t in terminals
+                    ],
+                }
+            )
+
+        return result
+
+
+def get_archived_session(session_name: str) -> Optional[Dict]:
+    """Get a single archived session by name."""
+    with SessionLocal() as db:
+        session = (
+            db.query(ArchivedSessionModel).filter(ArchivedSessionModel.name == session_name).first()
+        )
+
+        if not session:
+            return None
+
+        terminals = (
+            db.query(ArchivedTerminalModel)
+            .filter(ArchivedTerminalModel.session_name == session_name)
+            .all()
+        )
+
+        return {
+            "name": session.name,
+            "archived_at": session.archived_at.isoformat(),
+            "archived_by": session.archived_by,
+            "original_created_at": (
+                session.original_created_at.isoformat() if session.original_created_at else None
+            ),
+            "terminal_count": len(terminals),
+            "terminals": [
+                {
+                    "id": t.terminal_id,
+                    "provider": t.provider,
+                    "agent_profile": t.agent_profile,
+                    "status": t.status,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    "last_active": t.last_active.isoformat() if t.last_active else None,
+                    "full_permissions": t.full_permissions,
+                    "working_directory": t.working_directory,
+                }
+                for t in terminals
+            ],
+        }
+
+
+def delete_archived_session(session_name: str) -> bool:
+    """Delete an archived session and all its terminals."""
+    with SessionLocal() as db:
+        # Delete terminals first
+        db.query(ArchivedTerminalModel).filter(
+            ArchivedTerminalModel.session_name == session_name
+        ).delete()
+
+        # Delete session
+        deleted = (
+            db.query(ArchivedSessionModel)
+            .filter(ArchivedSessionModel.name == session_name)
+            .delete()
+        )
+
+        db.commit()
+        return deleted > 0
+
+
+def get_archived_session_names() -> List[str]:
+    """Get list of all archived session names."""
+    with SessionLocal() as db:
+        sessions = db.query(ArchivedSessionModel.name).all()
+        return [s.name for s in sessions]

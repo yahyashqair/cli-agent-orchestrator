@@ -159,6 +159,27 @@ npm run build
 
 For more details, see [ui/README.md](ui/README.md).
 
+### Session Archiving
+
+CAO supports archiving completed sessions to keep your active sessions list clean while preserving historical data. When you archive a session:
+
+- All terminal metadata is snapshotted and preserved
+- The tmux session is terminated
+- The session is removed from the active sessions list
+- The archived session appears in the "Archived Sessions" section in the UI
+
+**How to archive:**
+- Via UI: Click the Archive icon (📦) next to any session
+- Via API: `POST /sessions/{session_name}/archive`
+
+Archived sessions preserve:
+- Terminal IDs, providers, and agent profiles
+- Terminal statuses at the time of archiving
+- Creation and last active timestamps
+- Working directories and permissions
+
+For complete details, see [docs/session-archiving.md](docs/session-archiving.md).
+
 ### Agent Provider Configuration
 
 CAO now lets you pin a specific CLI provider per agent profile. The override order is:
