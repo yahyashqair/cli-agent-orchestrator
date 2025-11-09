@@ -2,15 +2,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Send, RotateCw, Terminal as TerminalIcon, Trash2, Eraser, Copy, Check, Mail, ExternalLink, Maximize2, Minimize2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { CardContent, CardHeader } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Panel } from '@/components/layout/panel'
-import { api } from '@/api/client'
+import { api } from '../api/client'
 import Convert from 'ansi-to-html'
-import InboxViewer from '@/components/features/terminal/InboxViewer'
+import InboxViewer from './InboxViewer'
+import './TerminalViewer.css'
 
 const CLEARED_MESSAGE = '<span style="opacity: 0.5;">Terminal output cleared (data still exists on server)</span>'
 const EMPTY_MESSAGE = 'No output yet...'
@@ -355,162 +350,128 @@ export default function TerminalViewer({
     openTerminalMutation.mutate()
   }
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'PROCESSING':
-      case 'WAITING_USER_ANSWER':
-        return 'success' as const
-      case 'COMPLETED':
-        return 'default' as const
-      case 'ERROR':
-        return 'destructive' as const
-      case 'IDLE':
-        return 'warning' as const
-      default:
-        return 'secondary' as const
-    }
-  }
-
   const displayHtml = isCleared ? CLEARED_MESSAGE : renderedHtml || (isFetchingOutput ? 'Loading…' : EMPTY_MESSAGE)
 
   return (
-    <Panel className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50' : ''} h-full`} onClick={handleViewerClick}>
-      {/* Header */}
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-3">
-          <TerminalIcon className="h-5 w-5" />
+    <div className="terminal-viewer" onClick={handleViewerClick}>
+      <div className="terminal-viewer-header">
+        <div className="terminal-viewer-title">
+          <TerminalIcon size={20} />
           <div>
-            <h3 className="font-semibold">{terminal?.agent_profile}</h3>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">{terminal?.provider}</span>
+            <h3>{terminal?.agent_profile}</h3>
+            <div className="terminal-viewer-meta">
+              <span className="terminal-provider">{terminal?.provider}</span>
               {terminal && (
-                <Badge variant={getStatusVariant(terminal.status)}>
+                <span className={`status-badge status-${terminal.status.toLowerCase()}`}>
                   {terminal.status}
-                </Badge>
+                </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-1">
+        <div className="terminal-viewer-actions">
           {onToggleFullscreen && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              className="btn btn-sm btn-secondary"
               onClick={onToggleFullscreen}
               title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen (Ctrl+Shift+F)'}
             >
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
           )}
-          <Button variant="ghost" size="sm" onClick={handleManualRefresh} title="Refresh output">
-            <RotateCw className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button className="btn btn-sm btn-secondary" onClick={handleManualRefresh} title="Refresh output">
+            <RotateCw size={14} />
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
             onClick={handleClearTerminal}
             title="Clear terminal display"
           >
-            <Eraser className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+            <Eraser size={14} />
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
             onClick={handleCopyOutput}
             title={copyStatus === 'copied' ? 'Copied!' : copyStatus === 'error' ? 'Copy failed' : 'Copy terminal output'}
             disabled={!rawOutputRef.current}
           >
-            {copyStatus === 'copied' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+            {copyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
             onClick={handleOpenTerminal}
             title="Open in terminal (attach to tmux session)"
           >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleExit} title="Send exit command">
+            <ExternalLink size={14} />
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={handleExit} title="Send exit command">
             Exit
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleDelete} title="Delete terminal">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} title="Close">
-            <X className="h-4 w-4" />
-          </Button>
+          </button>
+          <button className="btn btn-sm btn-danger" onClick={handleDelete} title="Delete terminal">
+            <Trash2 size={14} />
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={onClose} title="Close">
+            <X size={14} />
+          </button>
         </div>
-      </CardHeader>
+      </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="flex-1 flex flex-col">
-        <TabsList className="grid w-full grid-cols-2 mx-6">
-          <TabsTrigger value="output" className="flex items-center space-x-2">
-            <TerminalIcon className="h-4 w-4" />
-            <span>Output</span>
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="flex items-center space-x-2">
-            <Mail className="h-4 w-4" />
-            <span>Messages</span>
-            {pendingMessagesCount > 0 && (
-              <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-xs">
-                {pendingMessagesCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      <div className="terminal-tabs">
+        <button
+          className={`terminal-tab ${activeTab === 'output' ? 'terminal-tab-active' : ''}`}
+          onClick={() => setActiveTab('output')}
+        >
+          <TerminalIcon size={14} />
+          Output
+        </button>
+        <button
+          className={`terminal-tab ${activeTab === 'messages' ? 'terminal-tab-active' : ''}`}
+          onClick={() => setActiveTab('messages')}
+        >
+          <Mail size={14} />
+          Messages
+          {pendingMessagesCount > 0 && (
+            <span className="tab-badge">{pendingMessagesCount}</span>
+          )}
+        </button>
+      </div>
 
-        <TabsContent value="output" className="flex-1 mt-0">
-          <CardContent className="flex flex-col h-full p-0">
-            <div className="flex items-center space-x-2 px-6 py-2 border-b">
-              <label className="flex items-center space-x-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={autoScroll}
-                  onChange={(e) => setAutoScroll(e.target.checked)}
-                  className="rounded"
-                />
-                <span>Auto-scroll</span>
-              </label>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-4">
-                <pre
-                  ref={outputRef}
-                  className="font-mono text-sm whitespace-pre-wrap bg-background border rounded p-4 min-h-full"
-                  dangerouslySetInnerHTML={{ __html: displayHtml }}
-                />
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </TabsContent>
+      {activeTab === 'output' ? (
+        <div className="terminal-output-container">
+          <div className="terminal-output-controls">
+            <label className="auto-scroll-toggle">
+              <input
+                type="checkbox"
+                checked={autoScroll}
+                onChange={(e) => setAutoScroll(e.target.checked)}
+              />
+              Auto-scroll
+            </label>
+          </div>
+          <pre ref={outputRef} className="terminal-output" dangerouslySetInnerHTML={{ __html: displayHtml }} />
+        </div>
+      ) : (
+        <div className="terminal-messages-container">
+          <InboxViewer terminalId={terminalId} />
+        </div>
+      )}
 
-        <TabsContent value="messages" className="flex-1 mt-0">
-          <CardContent className="p-0 h-full">
-            <InboxViewer terminalId={terminalId} />
-          </CardContent>
-        </TabsContent>
-      </Tabs>
-
-      {/* Input Form */}
-      <CardHeader className="pb-4">
-        <form onSubmit={handleSubmit} className="flex space-x-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Send input to terminal..."
-            className="flex-1 h-10 px-3 py-2 text-sm border border-input bg-background rounded-md ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={sendInputMutation.isPending}
-          />
-          <Button type="submit" disabled={!input.trim() || sendInputMutation.isPending}>
-            <Send className="h-4 w-4 mr-2" />
-            Send
-          </Button>
-        </form>
-      </CardHeader>
-    </Panel>
+      <form onSubmit={handleSubmit} className="terminal-input-form">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Send input to terminal..."
+          className="terminal-input"
+          disabled={sendInputMutation.isPending}
+        />
+        <button type="submit" className="btn btn-primary" disabled={!input.trim() || sendInputMutation.isPending}>
+          <Send size={16} />
+          Send
+        </button>
+      </form>
+    </div>
   )
 }

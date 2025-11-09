@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, Play, History } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
-import { api } from '@/api/client'
-import { AGENT_PROFILE_OPTIONS, DEFAULT_PROVIDER, PROVIDER_OPTIONS } from '@/constants/providers'
+import { api } from '../api/client'
+import { AGENT_PROFILE_OPTIONS, DEFAULT_PROVIDER, PROVIDER_OPTIONS } from '../constants/providers'
+import './ControlPanel.css'
 
 interface ControlPanelProps {
   onClose: () => void
@@ -216,190 +212,183 @@ export default function ControlPanel({ onClose, onSuccess }: ControlPanelProps) 
   }
 
   return (
-    <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Launch New Agent</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardTitle>
-        </DialogHeader>
+    <div className="control-panel-overlay" onClick={onClose}>
+      <div className="control-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="control-panel-header">
+          <h2>Launch New Agent</h2>
+          <button className="btn-icon" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="control-panel-form">
           {recentConfigs.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center">
-                <History className="h-4 w-4 mr-2" />
+            <div className="form-group">
+              <label htmlFor="recentConfig">
+                <History size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
                 Recent Configurations
               </label>
-              <Select onValueChange={(value) => {
-                const config = recentConfigs[parseInt(value)]
-                if (config) loadRecentConfig(config)
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a recent configuration..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {recentConfigs.map((config, index) => {
-                    const providerLabel = PROVIDER_OPTIONS.find(p => p.value === config.provider)?.label || config.provider
-                    const profileLabel = AGENT_PROFILE_OPTIONS.find(p => p.value === config.agentProfile)?.label || config.agentProfile
-                    return (
-                      <SelectItem key={index} value={index.toString()}>
-                        {providerLabel} - {profileLabel}
-                        {config.workingDirectory && ` (${config.workingDirectory})`}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <select
+                id="recentConfig"
+                className="form-control"
+                onChange={(e) => {
+                  const config = recentConfigs[parseInt(e.target.value)]
+                  if (config) loadRecentConfig(config)
+                }}
+                value=""
+              >
+                <option value="">Select a recent configuration...</option>
+                {recentConfigs.map((config, index) => {
+                  const providerLabel = PROVIDER_OPTIONS.find(p => p.value === config.provider)?.label || config.provider
+                  const profileLabel = AGENT_PROFILE_OPTIONS.find(p => p.value === config.agentProfile)?.label || config.agentProfile
+                  return (
+                    <option key={index} value={index}>
+                      {providerLabel} - {profileLabel}
+                      {config.workingDirectory && ` (${config.workingDirectory})`}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
           )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Provider</label>
-            <Select value={provider} onValueChange={handleProviderChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDER_OPTIONS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="form-group">
+            <label htmlFor="provider">Provider</label>
+            <select
+              id="provider"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="form-control"
+            >
+              {PROVIDER_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Agent Profile</label>
-            <Select value={agentProfile} onValueChange={handleAgentProfileChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AGENT_PROFILE_OPTIONS.map((profile) => (
-                  <SelectItem key={profile.value} value={profile.value}>
-                    <div>
-                      <div>{profile.label}</div>
-                      <div className="text-xs text-muted-foreground">{profile.description}</div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="form-group">
+            <label htmlFor="agentProfile">Agent Profile</label>
+            <select
+              id="agentProfile"
+              value={agentProfile}
+              onChange={(e) => handleAgentProfileChange(e.target.value)}
+              className="form-control"
+            >
+              {AGENT_PROFILE_OPTIONS.map((profile) => (
+                <option key={profile.value} value={profile.value}>
+                  {profile.label} - {profile.description}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Working Directory <span className="text-muted-foreground">(optional)</span>
+          <div className="form-group">
+            <label htmlFor="workingDirectory">
+              Working Directory <span className="optional">(optional)</span>
             </label>
-            <Input
+            <input
+              id="workingDirectory"
+              type="text"
               value={workingDirectory}
               onChange={(e) => setWorkingDirectory(e.target.value)}
               placeholder="Current directory if empty"
+              className="form-control"
             />
           </div>
 
           {shouldShowFullPermissions && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
+            <div className="form-group">
+              <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  id="fullPermissions"
                   checked={fullPermissions}
                   onChange={(e) => setFullPermissions(e.target.checked)}
-                  className="rounded"
                 />
-                <label htmlFor="fullPermissions" className="text-sm font-medium">
-                  Enable full permissions
-                </label>
-              </div>
-              <p className="text-xs text-muted-foreground">
+                Enable full permissions
+              </label>
+              <p className="helper-text">
                 Skips Claude permission prompts by launching with --dangerously-skip-permissions.
               </p>
             </div>
           )}
 
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
+          <div className="form-group">
+            <label className="checkbox-label">
               <input
                 type="checkbox"
-                id="createNewSession"
                 checked={createNewSession}
                 onChange={(e) => setCreateNewSession(e.target.checked)}
-                className="rounded"
               />
-              <label htmlFor="createNewSession" className="text-sm font-medium">
-                Create new session
-              </label>
-            </div>
+              Create new session
+            </label>
           </div>
 
           {createNewSession && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Session Name <span className="text-muted-foreground">(optional)</span>
+            <div className="form-group">
+              <label htmlFor="sessionName">
+                Session Name <span className="optional">(optional)</span>
               </label>
-              <Input
+              <input
+                id="sessionName"
+                type="text"
                 value={sessionName}
                 onChange={(e) => setSessionName(e.target.value)}
                 placeholder="Auto-generated if empty"
+                className="form-control"
               />
             </div>
           )}
 
           {!createNewSession && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Attach to Session</label>
-              <Select
+            <div className="form-group">
+              <label htmlFor="existingSession">Attach to Session</label>
+              <select
+                id="existingSession"
                 value={selectedSession}
-                onValueChange={setSelectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="form-control"
                 disabled={isSessionsLoading || attachableSessions.length === 0}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={isSessionsLoading ? 'Loading sessions…' : 'Select a session'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {attachableSessions.map((session) => (
-                    <SelectItem key={session.name} value={session.name}>
-                      {session.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  {isSessionsLoading ? 'Loading sessions…' : 'Select a session'}
+                </option>
+                {attachableSessions.map((session) => (
+                  <option key={session.name} value={session.name}>
+                    {session.name}
+                  </option>
+                ))}
+              </select>
               {attachableSessions.length === 0 && !isSessionsLoading && (
-                <p className="text-xs text-muted-foreground">No existing sessions found. Create a new session first.</p>
+                <p className="helper-text">No existing sessions found. Create a new session first.</p>
               )}
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-              {errorMessage}
-            </div>
+            <div className="error-message">{errorMessage}</div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button
+          <div className="form-actions">
+            <button
               type="button"
-              variant="outline"
+              className="btn btn-secondary"
               onClick={onClose}
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
+              className="btn btn-primary"
               disabled={disableLaunch}
             >
-              <Play className="h-4 w-4 mr-2" />
+              <Play size={16} />
               {createSessionMutation.isPending ? 'Launching...' : 'Launch Agent'}
-            </Button>
+            </button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }
