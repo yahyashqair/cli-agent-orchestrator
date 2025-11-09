@@ -15,7 +15,7 @@ export default function TerminalTabs({
   onTerminalSelect,
   onTerminalClose
 }: TerminalTabsProps) {
-  // Get all terminals from all sessions
+  // Flatten session terminals so we can tab between any active terminal
   const allTerminals = sessions.flatMap(session =>
     session.terminals.map(terminal => ({
       ...terminal,

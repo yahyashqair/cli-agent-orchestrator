@@ -3,16 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, PanelLeftClose, PanelRightClose } from 'lucide-react'
 import { api } from './api/client'
 import Dashboard, { AgentStatusPanel } from './components/Dashboard'
-import SessionList from './components/SessionList'
+import SessionList from './components/session/SessionList'
 import ArchivedSessionList from './components/ArchivedSessionList'
-import TerminalViewer from './components/TerminalViewer'
-import TerminalTabs from './components/TerminalTabs'
+import TerminalViewer from './components/terminal/TerminalViewer'
 import ControlPanel from './components/ControlPanel'
 import FlowViewer from './components/FlowViewer'
 import FlowEditor from './components/FlowEditor'
 import ThemeToggle from './components/ThemeToggle'
 import AgentProviderSettings from './components/AgentProviderSettings'
 import CommandPalette, { useCommandPalette } from './components/CommandPalette'
+import TerminalTabs from './components/TerminalTabs'
+import FullscreenPortal from './components/FullscreenPortal'
 import { THEMES, type Theme } from './types'
 import './App.css'
 
@@ -234,6 +235,51 @@ function App() {
     () => setActiveView('sessions')
   )
 
+  const totalTerminals = safeSessions.reduce(
+    (count, session) => count + session.terminals.length,
+    0
+  )
+  const shouldShowTerminalTabs = !isFullscreen && totalTerminals > 1
+
+  const terminalColumnClass = [
+    'terminal-column glass-panel',
+    isFullscreen ? 'fullscreen' : '',
+    shouldShowTerminalTabs ? 'has-terminal-tabs' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const terminalColumn = (
+    <div className={terminalColumnClass}>
+      {shouldShowTerminalTabs && (
+        <TerminalTabs
+          sessions={safeSessions}
+          selectedTerminalId={selectedTerminalId}
+          onTerminalSelect={handleTerminalSelect}
+          onTerminalClose={(id) => {
+            if (id === selectedTerminalId) {
+              setSelectedTerminalId(null)
+            }
+          }}
+        />
+      )}
+      {selectedTerminalId ? (
+        <TerminalViewer
+          terminalId={selectedTerminalId}
+          focusTrigger={terminalFocusKey}
+          onClose={() => setSelectedTerminalId(null)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+        />
+      ) : (
+        <div className="empty-state frosted-card">
+          <h2>Select a terminal to view</h2>
+          <p>Choose a terminal from the sessions list to monitor its output</p>
+        </div>
+      )}
+    </div>
+  )
+
   return withAppShell(
     <>
       {!isFullscreen && (
@@ -332,37 +378,11 @@ function App() {
                     <ChevronRight size={18} />
                   </button>
                 )}
-                <div className={`terminal-column glass-panel ${isFullscreen ? 'fullscreen' : ''}`}>
-                  {!isFullscreen && (() => {
-                    const totalTerminals = safeSessions.reduce((count, session) => count + session.terminals.length, 0)
-                    return totalTerminals > 1 && (
-                      <TerminalTabs
-                        sessions={safeSessions}
-                        selectedTerminalId={selectedTerminalId}
-                        onTerminalSelect={handleTerminalSelect}
-                        onTerminalClose={(id) => {
-                          if (id === selectedTerminalId) {
-                            setSelectedTerminalId(null)
-                          }
-                        }}
-                      />
-                    )
-                  })()}
-                  {selectedTerminalId ? (
-                    <TerminalViewer
-                      terminalId={selectedTerminalId}
-                      focusTrigger={terminalFocusKey}
-                      onClose={() => setSelectedTerminalId(null)}
-                      isFullscreen={isFullscreen}
-                      onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-                    />
-                  ) : (
-                    <div className="empty-state frosted-card">
-                      <h2>Select a terminal to view</h2>
-                      <p>Choose a terminal from the sessions list to monitor its output</p>
-                    </div>
-                  )}
-                </div>
+                {isFullscreen ? (
+                  <FullscreenPortal>{terminalColumn}</FullscreenPortal>
+                ) : (
+                  terminalColumn
+                )}
                 {!isFullscreen && !rightPanelCollapsed && (
                   <button
                     className="panel-toggle panel-toggle-right"

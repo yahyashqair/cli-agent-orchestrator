@@ -294,6 +294,10 @@ body {
   position: relative;
 }
 
+body.terminal-fullscreen-active {
+  overflow: hidden;
+}
+
 body::before {
   content: '';
   position: fixed;

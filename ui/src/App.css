@@ -271,6 +271,14 @@
   transition: all 0.3s ease;
 }
 
+.terminal-column.has-terminal-tabs {
+  padding-top: 0.75rem;
+}
+
+.terminal-column.has-terminal-tabs .terminal-tabs-bar {
+  margin-top: -0.25rem;
+}
+
 .terminal-column.fullscreen {
   position: fixed;
   top: 0;
@@ -281,9 +289,30 @@
   height: 100vh;
   z-index: 9999;
   border-radius: 0;
-  padding: 0.75rem;
+  padding: 0.5rem;
   margin: 0;
   background: var(--bg-primary);
+}
+
+.terminal-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: clamp(0.5rem, 1vw, 1rem);
+  gap: 0;
+}
+
+.terminal-fullscreen-overlay .terminal-column.fullscreen {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  z-index: auto;
+  border-radius: 18px;
 }
 
 .terminal-column > * {
@@ -291,6 +320,12 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.terminal-column > .terminal-tabs-bar {
+  flex: 0 0 auto;
+  display: block;
+  min-height: auto;
 }
 
 .main-content {
@@ -524,9 +559,6 @@
   padding: 0.65rem 0.75rem;
 }
 
-.app-content.compact-mode .terminal-tabs-bar {
-  margin-bottom: 0.35rem;
-}
 
 /* Fullscreen Mode */
 .app-content.fullscreen-mode {
