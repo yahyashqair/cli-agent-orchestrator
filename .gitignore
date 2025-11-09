@@ -29,3 +29,5 @@ dist/
 
 # Memory
 context/
+
+/newUI/node_modules
