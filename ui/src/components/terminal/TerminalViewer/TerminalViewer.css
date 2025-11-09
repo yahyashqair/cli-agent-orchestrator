@@ -1,0 +1,421 @@
+.terminal-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text-primary);
+  min-height: 0;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.terminal-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--glass-panel-strong) 85%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  flex-wrap: wrap;
+  min-height: fit-content;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.terminal-viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.terminal-viewer-title h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.terminal-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.terminal-viewer-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.terminal-tabs {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  background: color-mix(in srgb, var(--glass-panel) 85%, transparent);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  width: fit-content;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.terminal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.terminal-tab:hover,
+.terminal-tab:focus-visible {
+  color: var(--text-primary);
+}
+
+.terminal-tab-active {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent-hover) 80%, transparent));
+  color: white;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25), var(--glow-primary);
+}
+
+.tab-badge {
+  background: color-mix(in srgb, var(--warning) 80%, transparent);
+  color: #fffdf7;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.terminal-messages-container {
+  flex: 1 1 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.terminal-output-container {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--bg-tertiary) 95%, var(--bg-secondary) 90%);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 0 0 1px var(--glass-highlight), 0 4px 12px var(--glass-shadow-color);
+  min-height: 0;
+  max-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+}
+
+.terminal-output-controls {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.auto-scroll-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-scroll-toggle input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.terminal-output {
+  flex: 1 1 0;
+  padding: 0.75rem;
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: transparent;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-shadow: none;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.terminal-output span {
+  white-space: pre-wrap;
+}
+
+.terminal-output * {
+  font-family: inherit;
+}
+
+/* Ensure ANSI colors have proper contrast */
+.terminal-output span[style*="color"] {
+  filter: brightness(1.2) contrast(1.1);
+}
+
+/* Fallback for any text without explicit color */
+.terminal-output span:not([style*="color"]),
+.terminal-output:not([style*="color"]) {
+  color: var(--text-primary) !important;
+}
+
+/* Improve visibility for common ANSI colors */
+.terminal-output span[style*="color:#000000"],
+.terminal-output span[style*="color:rgb(0,0,0)"],
+.terminal-output span[style*="color:black"] {
+  color: var(--text-primary) !important;
+  filter: brightness(1.3);
+}
+
+.terminal-output span[style*="color:#333333"],
+.terminal-output span[style*="color:rgb(51,51,51)"],
+.terminal-output span[style*="color:#666666"],
+.terminal-output span[style*="color:rgb(102,102,102)"] {
+  color: var(--text-secondary) !important;
+  filter: brightness(1.4);
+}
+
+.terminal-output::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+  border-radius: 5px;
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--glass-border) 80%, transparent);
+  border-radius: 5px;
+  border: 2px solid color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+}
+
+.terminal-output::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--glass-border) 120%, var(--text-secondary));
+}
+
+.terminal-output::-webkit-scrollbar-corner {
+  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+}
+
+.terminal-input-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-top: 2px solid var(--glass-border);
+  background: color-mix(in srgb, var(--bg-secondary) 85%, var(--bg-tertiary) 70%);
+  border-radius: 0 0 24px 24px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: auto;
+  position: relative;
+  z-index: 10;
+}
+
+.terminal-input {
+  flex: 1;
+  padding: 0.5rem 0.7rem;
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  box-shadow: inset 0 1px 3px var(--glass-shadow-color), 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+.terminal-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.terminal-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.terminal-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.terminal-provider {
+  padding: 0.25rem 0.65rem;
+  background: color-mix(in srgb, var(--glass-panel) 70%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Empty terminal state styling */
+.terminal-output:empty::before {
+  content: 'No output yet... Waiting for terminal activity.';
+  color: var(--text-muted);
+  opacity: 0.8;
+  font-style: italic;
+}
+
+/* Improve terminal output visibility */
+.terminal-output-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 30%, transparent),
+    transparent
+  );
+  opacity: 0.5;
+}
+
+/* Fullscreen mode specific styles */
+.terminal-column.fullscreen {
+  overflow: hidden;
+}
+
+.terminal-column.fullscreen .terminal-viewer {
+  height: calc(100vh - 1rem) !important;
+  max-height: calc(100vh - 1rem) !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-rows: auto 1fr auto !important;
+  grid-template-columns: 1fr;
+  gap: 0.3rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.terminal-column.fullscreen .terminal-viewer-header {
+  grid-row: 1;
+  overflow: visible;
+  min-height: fit-content;
+  padding: 0.4rem 0.6rem;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.terminal-column.fullscreen .terminal-viewer-actions {
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.terminal-column.fullscreen .terminal-viewer-actions .btn {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.7rem;
+  min-width: auto;
+  white-space: nowrap;
+}
+
+.terminal-column.fullscreen .terminal-viewer-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.terminal-column.fullscreen .terminal-viewer-title h3 {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-column.fullscreen .terminal-viewer-meta {
+  display: none;
+}
+
+.terminal-column.fullscreen .terminal-output-container {
+  grid-row: 2;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-column.fullscreen .terminal-messages-container {
+  grid-row: 2;
+  overflow: hidden;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.terminal-column.fullscreen .terminal-output-controls {
+  flex-shrink: 0;
+}
+
+.terminal-column.fullscreen .terminal-output {
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  max-height: 100%;
+}
+
+.terminal-column.fullscreen .terminal-input-form {
+  grid-row: 3;
+  border-top: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 -4px 12px var(--glass-shadow-color);
+  background: color-mix(in srgb, var(--bg-secondary) 95%, var(--bg-primary) 90%);
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.terminal-column.fullscreen .terminal-input {
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, transparent);
+  border: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -31,10 +31,12 @@ export const endpoints = {
   // Sessions
   sessions: {
     list: () => apiClient.get('/sessions'),
-    create: (data: any) => apiClient.post('/sessions', data),
+    create: (data: any) => apiClient.post('/sessions', null, { params: data }),
     get: (name: string) => apiClient.get(`/sessions/${name}`),
     delete: (name: string) => apiClient.delete(`/sessions/${name}`),
-    archive: (name: string) => apiClient.post(`/sessions/${name}/archive`),
+    archive: (name: string, archivedBy?: string) => apiClient.post(`/sessions/${name}/archive`, null, {
+      params: archivedBy ? { archived_by: archivedBy } : {}
+    }),
     listArchived: () => apiClient.get('/sessions/archived'),
     getArchived: (name: string) => apiClient.get(`/sessions/archived/${name}`),
   },
@@ -42,13 +44,14 @@ export const endpoints = {
   // Terminals
   terminals: {
     create: (sessionName: string, data: any) =>
-      apiClient.post(`/sessions/${sessionName}/terminals`, data),
+      apiClient.post(`/sessions/${sessionName}/terminals`, null, { params: data }),
     listInSession: (sessionName: string) =>
       apiClient.get(`/sessions/${sessionName}/terminals`),
     get: (terminalId: string) => apiClient.get(`/terminals/${terminalId}`),
-    sendInput: (terminalId: string, input: string, provider?: string) =>
-      apiClient.post(`/terminals/${terminalId}/input`, { input, provider }),
-    getOutput: (terminalId: string) => apiClient.get(`/terminals/${terminalId}/output`),
+    sendInput: (terminalId: string, message: string) =>
+      apiClient.post(`/terminals/${terminalId}/input`, null, { params: { message } }),
+    getOutput: (terminalId: string, mode: 'full' | 'last' = 'full') =>
+      apiClient.get(`/terminals/${terminalId}/output`, { params: { mode } }),
     exit: (terminalId: string) => apiClient.post(`/terminals/${terminalId}/exit`),
     delete: (terminalId: string) => apiClient.delete(`/terminals/${terminalId}`),
     open: (terminalId: string) => apiClient.post(`/terminals/${terminalId}/open`),
@@ -56,11 +59,18 @@ export const endpoints = {
 
   // Messages
   messages: {
-    send: (receiverId: string, message: string) =>
-      apiClient.post(`/terminals/${receiverId}/inbox/messages`, { receiver_id: receiverId, message }),
-    getInbox: (terminalId: string) =>
-      apiClient.get(`/terminals/${terminalId}/inbox/messages`),
-    getPendingCount: () => apiClient.get('/inbox/messages/pending/count'),
+    send: (receiverId: string, senderId: string, message: string) =>
+      apiClient.post(`/terminals/${receiverId}/inbox/messages`, null, {
+        params: { sender_id: senderId, message }
+      }),
+    getInbox: (terminalId: string, status?: string, direction?: string) =>
+      apiClient.get(`/terminals/${terminalId}/inbox/messages`, {
+        params: status || direction ? { status, direction } : {}
+      }),
+    getPendingCount: (includeArchived: boolean = true) =>
+      apiClient.get('/inbox/messages/pending/count', {
+        params: { include_archived: includeArchived }
+      }),
     getTerminalPendingCount: (terminalId: string) =>
       apiClient.get(`/terminals/${terminalId}/inbox/messages/pending/count`),
   },
@@ -68,7 +78,7 @@ export const endpoints = {
   // Flows
   flows: {
     list: () => apiClient.get('/flows'),
-    add: (data: any) => apiClient.post('/flows', data),
+    add: (filePath: string) => apiClient.post('/flows', null, { params: { file_path: filePath } }),
     get: (name: string) => apiClient.get(`/flows/${name}`),
     delete: (name: string) => apiClient.delete(`/flows/${name}`),
     enable: (name: string) => apiClient.post(`/flows/${name}/enable`),
