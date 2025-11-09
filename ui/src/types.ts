@@ -39,9 +39,11 @@ export interface Terminal {
 }
 
 export interface Session {
+  id?: string;
   name: string;
+  status?: string;
   terminal_count: number;
-  terminals: Terminal[];
+  terminals?: Terminal[];
 }
 
 export type MessageStatus = 'pending' | 'delivered' | 'failed';

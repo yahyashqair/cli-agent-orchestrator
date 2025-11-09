@@ -1,8 +1,10 @@
 """GitHub Copilot CLI provider implementation."""
 
 import logging
+import os
 import re
 import shlex
+import subprocess
 from typing import Dict, Optional
 
 from cli_agent_orchestrator.clients.tmux import tmux_client
@@ -72,13 +74,15 @@ class CopilotCliProvider(BaseProvider):
         self._initialized = False
         self._agent_profile = agent_profile
         self._env_exports: Dict[str, str] = {}
+        self._mcp_servers: Dict[str, Dict] = {}
         self._profile = None
 
         if self._agent_profile:
             try:
                 self._profile = load_agent_profile(self._agent_profile)
                 if self._profile.mcpServers:
-                    for server in self._profile.mcpServers.values():
+                    self._mcp_servers = self._profile.mcpServers
+                    for server in self._mcp_servers.values():
                         for key, value in (server.get("env") or {}).items():
                             self._env_exports[key] = value
             except Exception as exc:  # pragma: no cover - defensive
@@ -88,6 +92,9 @@ class CopilotCliProvider(BaseProvider):
         """Launch Copilot CLI inside the tmux pane and wait until it's idle."""
         if not wait_for_shell(tmux_client, self.session_name, self.window_name, timeout=10.0):
             raise TimeoutError("Shell initialization timed out after 10 seconds")
+
+        if self._mcp_servers:
+            self._ensure_mcp_servers_registered()
 
         runtime_env = {
             "CAO_TERMINAL_ID": self.terminal_id,
@@ -126,6 +133,87 @@ class CopilotCliProvider(BaseProvider):
 
         self._initialized = True
         return True
+
+    def _ensure_mcp_servers_registered(self) -> None:
+        """Register MCP servers with Copilot CLI via `copilot mcp add`."""
+
+        base_env = os.environ.copy()
+
+        for name, server in self._mcp_servers.items():
+            command = server.get("command")
+            if not command:
+                logger.warning("Skipping MCP server '%s': missing command", name)
+                continue
+
+            try:
+                command_parts = shlex.split(command)
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping MCP server '%s': failed to parse command '%s': %s",
+                    name,
+                    command,
+                    exc,
+                )
+                continue
+
+            if not command_parts:
+                logger.warning(
+                    "Skipping MCP server '%s': command '%s' resolved to no arguments",
+                    name,
+                    command,
+                )
+                continue
+
+            args = server.get("args") or []
+            server_env = (server.get("env") or {}).copy()
+            server_env["CAO_TERMINAL_ID"] = self.terminal_id
+            server_env["CAO_SESSION_NAME"] = self.session_name
+            server_env["CAO_PROVIDER"] = PROVIDER_NAME
+            if self.working_directory:
+                server_env["CAO_WORKING_DIRECTORY"] = self.working_directory
+            else:
+                server_env.pop("CAO_WORKING_DIRECTORY", None)
+
+            cmd = ["copilot", "mcp", "add"]
+            for key, value in server_env.items():
+                cmd.extend(["--env", f"{key}={value}"])
+
+            cmd.extend(command_parts)
+            if args:
+                cmd.append("--")
+                cmd.extend(args)
+            cmd.append(name)
+
+            try:
+                result = subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    env=base_env,
+                )
+                if result.returncode != 0:
+                    stderr = (result.stderr or "").strip()
+                    if "already exists" in stderr:
+                        remove_cmd = ["copilot", "mcp", "remove", name]
+                        subprocess.run(remove_cmd, check=False, capture_output=True, env=base_env)
+                        retry = subprocess.run(
+                            cmd,
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                            env=base_env,
+                        )
+                        if retry.returncode != 0:
+                            logger.warning(
+                                "Failed to re-register MCP server '%s': %s",
+                                name,
+                                (retry.stderr or "").strip(),
+                            )
+                    else:
+                        logger.warning("Failed to register MCP server '%s': %s", name, stderr)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Error registering MCP server '%s': %s", name, exc)
 
     def get_status(self, tail_lines: int = None) -> TerminalStatus:
         """Determine Copilot CLI status from tmux history."""
