@@ -1,10 +1,11 @@
 """CLI Agent Orchestrator MCP Server implementation."""
 
 import asyncio
+import json
 import logging
 import os
 import time
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from fastmcp import FastMCP
@@ -14,6 +15,10 @@ from cli_agent_orchestrator.constants import API_BASE_URL
 from cli_agent_orchestrator.mcp_server.models import HandoffResult
 from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.services import agent_config_service
+from cli_agent_orchestrator.services.routing_strategy import (
+    WorkflowPlan,
+    build_workflow_plan,
+)
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
 from cli_agent_orchestrator.utils.terminal import generate_session_name, wait_until_terminal_status
 
@@ -153,12 +158,20 @@ def _send_direct_input(terminal_id: str, message: str) -> None:
     response.raise_for_status()
 
 
-def _send_to_inbox(receiver_id: str, message: str) -> Dict[str, Any]:
+def _send_to_inbox(
+    receiver_id: str,
+    message: str,
+    *,
+    workflow_plan: Optional[WorkflowPlan] = None,
+    in_reply_to: Optional[int] = None,
+) -> Dict[str, Any]:
     """Send message to another terminal's inbox (queued delivery when IDLE).
 
     Args:
         receiver_id: Target terminal ID
         message: Message content
+        workflow_plan: Optional routing plan detailing priority/metadata
+        in_reply_to: Optional message id to mark as completed when replying
 
     Returns:
         Dict with message details
@@ -167,13 +180,26 @@ def _send_to_inbox(receiver_id: str, message: str) -> Dict[str, Any]:
         ValueError: If CAO_TERMINAL_ID not set
         Exception: If API call fails
     """
+
     sender_id = os.getenv("CAO_TERMINAL_ID")
     if not sender_id:
         raise ValueError("CAO_TERMINAL_ID not set - cannot determine sender")
 
+    params: Dict[str, Any] = {"sender_id": sender_id, "message": message}
+
+    if workflow_plan:
+        params["priority"] = workflow_plan.priority
+        if workflow_plan.scheduled_at:
+            params["scheduled_at"] = workflow_plan.scheduled_at.isoformat()
+        if workflow_plan.metadata:
+            params["metadata"] = json.dumps(workflow_plan.metadata)
+
+    if in_reply_to is not None:
+        params["in_reply_to"] = in_reply_to
+
     response = requests.post(
         f"{API_BASE_URL}/terminals/{receiver_id}/inbox/messages",
-        params={"sender_id": sender_id, "message": message},
+        params=params,
     )
     response.raise_for_status()
     return response.json()
@@ -350,13 +376,26 @@ async def assign(
         # Create terminal
         terminal_id, _ = _create_terminal(agent_profile)
 
-        # Send message immediately
-        _send_direct_input(terminal_id, message)
+        # Queue message through inbox so scheduler manages delivery
+        workflow_plan = build_workflow_plan(message)
+        inbox_response = _send_to_inbox(
+            terminal_id,
+            message,
+            workflow_plan=workflow_plan,
+        )
 
         return {
             "success": True,
             "terminal_id": terminal_id,
             "message": f"Task assigned to {agent_profile} (terminal: {terminal_id})",
+            "message_id": inbox_response.get("message_id"),
+            "workflow": {
+                "priority": workflow_plan.priority,
+                "scheduled_at": workflow_plan.scheduled_at.isoformat()
+                if workflow_plan.scheduled_at
+                else None,
+                "metadata": workflow_plan.metadata,
+            },
         }
 
     except Exception as e:
@@ -406,6 +445,10 @@ async def assign(
 async def send_message(
     receiver_id: str = Field(description="Target terminal ID to send message to"),
     message: str = Field(description="Message content to send"),
+    in_reply_to_message_id: Optional[int] = Field(
+        default=None,
+        description="Optional inbox message id being completed by this reply",
+    ),
 ) -> Dict[str, Any]:
     """Send a message to another terminal's inbox.
 
@@ -420,7 +463,21 @@ async def send_message(
         Dict with success status and message details
     """
     try:
-        return _send_to_inbox(receiver_id, message)
+        workflow_plan = build_workflow_plan(message)
+        response = _send_to_inbox(
+            receiver_id,
+            message,
+            workflow_plan=workflow_plan,
+            in_reply_to=in_reply_to_message_id,
+        )
+        response["workflow"] = {
+            "priority": workflow_plan.priority,
+            "scheduled_at": workflow_plan.scheduled_at.isoformat()
+            if workflow_plan.scheduled_at
+            else None,
+            "metadata": workflow_plan.metadata,
+        }
+        return response
     except ValueError as e:
         # Specific error for CAO_TERMINAL_ID not set
         if "CAO_TERMINAL_ID not set" in str(e):

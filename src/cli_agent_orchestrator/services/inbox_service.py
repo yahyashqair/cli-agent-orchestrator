@@ -7,9 +7,12 @@ from pathlib import Path
 
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
 
-from cli_agent_orchestrator.clients.database import get_pending_messages, update_message_status
+from cli_agent_orchestrator.clients.database import (
+    dequeue_next_message,
+    get_pending_messages,
+    record_processing_failure,
+)
 from cli_agent_orchestrator.constants import INBOX_SERVICE_TAIL_LINES, TERMINAL_LOG_DIR
-from cli_agent_orchestrator.models.inbox import MessageStatus
 from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.providers.manager import provider_manager
 from cli_agent_orchestrator.services import terminal_service
@@ -44,7 +47,11 @@ def _has_idle_pattern(terminal_id: str) -> bool:
 
 
 def check_and_send_pending_messages(terminal_id: str) -> bool:
-    """Check for pending messages and send if terminal is ready.
+    """Attempt to schedule the next pending message for the terminal.
+
+    This function checks the terminal's status, dequeues at most one message
+    atomically, and streams it to the terminal input. Messages are marked as
+    ``processing`` when dequeued and rescheduled with backoff if delivery fails.
 
     Args:
         terminal_id: Terminal ID to check messages for
@@ -55,14 +62,7 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
     Raises:
         ValueError: If provider not found for terminal
     """
-    # Check for pending messages
-    messages = get_pending_messages(terminal_id, limit=1)
-    if not messages:
-        return False
 
-    message = messages[0]
-
-    # Get provider and check status
     provider = provider_manager.get_provider(terminal_id)
     status = provider.get_status(tail_lines=INBOX_SERVICE_TAIL_LINES)
 
@@ -70,20 +70,38 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
         logger.debug(f"Terminal {terminal_id} not ready (status={status})")
         return False
 
-    # Send message with notification header
-    try:
-        # Prepend a clear notification to make the incoming message visible
-        notification_header = f"[INBOX MESSAGE FROM {message.sender_id}]"
-        formatted_message = f"{notification_header}\n{message.message}"
+    message = dequeue_next_message(terminal_id)
+    if not message:
+        logger.debug(f"No pending inbox messages for {terminal_id}")
+        return False
 
+    policy = message.metadata.get("routing_policy", "unspecified")
+    attempt = message.metadata.get("attempt", 1)
+    notification_header = (
+        f"[INBOX #{message.id} FROM {message.sender_id} | priority={message.priority}"
+        f" | policy={policy} | attempt={attempt}]"
+    )
+    formatted_message = f"{notification_header}\n{message.message}"
+
+    try:
         terminal_service.send_input(terminal_id, formatted_message)
-        update_message_status(message.id, MessageStatus.DELIVERED)
-        logger.info(f"Delivered message {message.id} to terminal {terminal_id}")
+        logger.info(
+            "Delivered inbox message %s to %s (policy=%s, attempt=%s)",
+            message.id,
+            terminal_id,
+            policy,
+            attempt,
+        )
         return True
-    except Exception as e:
-        logger.error(f"Failed to send message {message.id} to {terminal_id}: {e}")
-        update_message_status(message.id, MessageStatus.FAILED)
-        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to deliver inbox message %s to %s: %s",
+            message.id,
+            terminal_id,
+            exc,
+        )
+        record_processing_failure(message, error=str(exc))
+        return False
 
 
 class LogFileHandler(FileSystemEventHandler):

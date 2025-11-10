@@ -125,12 +125,12 @@ database.create_inbox_message()  # Status: PENDING
   ↓
 inbox_service.check_and_send_pending_messages()
   ↓
-If receiver IDLE → send immediately
+If receiver IDLE → atomically dequeue + mark PROCESSING
 If receiver BUSY → watchdog monitors log file
   ↓
-On log change → detect IDLE pattern → send message
+On log change → detect IDLE pattern → dequeue + send
   ↓
-Update message status: DELIVERED
+Update message status: PROCESSING → COMPLETED via reply or FAILED on retries
 ```
 
 ### Handoff Flow

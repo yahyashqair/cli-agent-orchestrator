@@ -1,8 +1,9 @@
 """Minimal database client with only terminal metadata."""
 
+import json
 import logging
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -42,8 +43,13 @@ class InboxModel(Base):
     receiver_id = Column(String, nullable=False)
     message = Column(String, nullable=False)
     status = Column(String, nullable=False)  # MessageStatus enum value
+    priority = Column(Integer, nullable=False, default=0)
+    scheduled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     delivered_at = Column(DateTime, nullable=True)
+    processing_started_at = Column(DateTime, nullable=True)
+    processing_completed_at = Column(DateTime, nullable=True)
+    workflow_metadata = Column(Text, nullable=True)  # JSON encoded workflow metadata
 
 
 class FlowModel(Base):
@@ -101,6 +107,52 @@ class ArchivedTerminalModel(Base):
     working_directory = Column(String, nullable=True)
 
 
+# Helper utilities ---------------------------------------------------------
+
+
+def _serialize_metadata(metadata: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Serialize workflow metadata to JSON for persistence."""
+
+    if not metadata:
+        return None
+    try:
+        return json.dumps(metadata)
+    except (TypeError, ValueError) as exc:
+        logger.warning("Failed to serialize inbox metadata: %s", exc)
+        return None
+
+
+def _deserialize_metadata(metadata: Optional[str]) -> Dict[str, Any]:
+    """Deserialize workflow metadata JSON into a dictionary."""
+
+    if not metadata:
+        return {}
+    try:
+        return json.loads(metadata)
+    except (TypeError, ValueError) as exc:
+        logger.warning("Failed to deserialize inbox metadata: %s", exc)
+        return {}
+
+
+def _model_to_inbox_message(model: InboxModel) -> InboxMessage:
+    """Convert ORM model to pydantic InboxMessage."""
+
+    return InboxMessage(
+        id=model.id,
+        sender_id=model.sender_id,
+        receiver_id=model.receiver_id,
+        message=model.message,
+        status=MessageStatus(model.status),
+        priority=model.priority,
+        scheduled_at=model.scheduled_at,
+        created_at=model.created_at,
+        delivered_at=model.delivered_at,
+        processing_started_at=model.processing_started_at,
+        processing_completed_at=model.processing_completed_at,
+        metadata=_deserialize_metadata(model.workflow_metadata),
+    )
+
+
 # Module-level singletons
 DB_DIR.mkdir(parents=True, exist_ok=True)
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -155,6 +207,43 @@ def init_db():
                 logger.info("Added delivered_at column to inbox table")
     except Exception as exc:
         logger.warning("Failed to ensure inbox.delivered_at column exists: %s", exc)
+
+    # Lightweight migration: ensure inbox workflow columns exist
+    try:
+        with engine.begin() as connection:
+            columns = connection.execute(text("PRAGMA table_info(inbox)")).fetchall()
+            existing = {column[1] for column in columns} if columns else set()
+            if "priority" not in existing:
+                connection.execute(
+                    text("ALTER TABLE inbox ADD COLUMN priority INTEGER NOT NULL DEFAULT 0")
+                )
+                logger.info("Added priority column to inbox table")
+            if "scheduled_at" not in existing:
+                connection.execute(text("ALTER TABLE inbox ADD COLUMN scheduled_at TEXT"))
+                logger.info("Added scheduled_at column to inbox table")
+            if "processing_started_at" not in existing:
+                connection.execute(
+                    text("ALTER TABLE inbox ADD COLUMN processing_started_at TEXT")
+                )
+                logger.info("Added processing_started_at column to inbox table")
+            if "processing_completed_at" not in existing:
+                connection.execute(
+                    text("ALTER TABLE inbox ADD COLUMN processing_completed_at TEXT")
+                )
+                logger.info("Added processing_completed_at column to inbox table")
+            if "workflow_metadata" not in existing:
+                connection.execute(
+                    text("ALTER TABLE inbox ADD COLUMN workflow_metadata TEXT")
+                )
+                if "metadata" in existing:
+                    connection.execute(
+                        text(
+                            "UPDATE inbox SET workflow_metadata = metadata WHERE metadata IS NOT NULL"
+                        )
+                    )
+                logger.info("Ensured workflow_metadata column exists on inbox table")
+    except Exception as exc:
+        logger.warning("Failed to ensure inbox workflow columns exist: %s", exc)
 
     # Lightweight migration: ensure agent_provider_configs table exists
     try:
@@ -326,27 +415,31 @@ def delete_terminals_by_session(tmux_session: str) -> int:
         return deleted
 
 
-def create_inbox_message(sender_id: str, receiver_id: str, message: str) -> InboxMessage:
+def create_inbox_message(
+    sender_id: str,
+    receiver_id: str,
+    message: str,
+    *,
+    priority: int = 0,
+    scheduled_at: datetime | None = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> InboxMessage:
     """Create inbox message with status=MessageStatus.PENDING."""
+
     with SessionLocal() as db:
         inbox_msg = InboxModel(
             sender_id=sender_id,
             receiver_id=receiver_id,
             message=message,
             status=MessageStatus.PENDING.value,
+            priority=priority,
+            scheduled_at=scheduled_at,
+            workflow_metadata=_serialize_metadata(metadata),
         )
         db.add(inbox_msg)
         db.commit()
         db.refresh(inbox_msg)
-        return InboxMessage(
-            id=inbox_msg.id,
-            sender_id=inbox_msg.sender_id,
-            receiver_id=inbox_msg.receiver_id,
-            message=inbox_msg.message,
-            status=MessageStatus(inbox_msg.status),
-            created_at=inbox_msg.created_at,
-            delivered_at=inbox_msg.delivered_at,
-        )
+        return _model_to_inbox_message(inbox_msg)
 
 
 def get_pending_messages(receiver_id: str, limit: int = 1) -> List[InboxMessage]:
@@ -356,35 +449,190 @@ def get_pending_messages(receiver_id: str, limit: int = 1) -> List[InboxMessage]
             db.query(InboxModel)
             .filter(InboxModel.receiver_id == receiver_id)
             .filter(InboxModel.status == MessageStatus.PENDING.value)
-            .order_by(InboxModel.created_at.asc())
+            .filter(
+                (InboxModel.scheduled_at.is_(None))
+                | (InboxModel.scheduled_at <= datetime.now())
+            )
+            .order_by(InboxModel.priority.desc(), InboxModel.created_at.asc())
             .limit(limit)
             .all()
         )
-        return [
-            InboxMessage(
-                id=msg.id,
-                sender_id=msg.sender_id,
-                receiver_id=msg.receiver_id,
-                message=msg.message,
-                status=MessageStatus(msg.status),
-                created_at=msg.created_at,
-                delivered_at=msg.delivered_at,
-            )
-            for msg in messages
-        ]
+        return [_model_to_inbox_message(msg) for msg in messages]
 
 
-def update_message_status(message_id: int, status: MessageStatus) -> bool:
-    """Update message status to MessageStatus.DELIVERED or MessageStatus.FAILED."""
+def update_message_status(
+    message_id: int,
+    status: MessageStatus,
+    *,
+    metadata: Optional[Dict[str, Any]] = None,
+    scheduled_at: datetime | None = None,
+    priority: Optional[int] = None,
+) -> bool:
+    """Update message status and optional metadata."""
+
     with SessionLocal() as db:
         message = db.query(InboxModel).filter(InboxModel.id == message_id).first()
-        if message:
-            message.status = status.value
-            if status == MessageStatus.DELIVERED:
-                message.delivered_at = datetime.now()
-            db.commit()
-            return True
-        return False
+        if not message:
+            return False
+
+        now = datetime.now()
+        message.status = status.value
+
+        if status == MessageStatus.PROCESSING:
+            message.delivered_at = now
+            message.processing_started_at = now
+            message.processing_completed_at = None
+        elif status == MessageStatus.COMPLETED:
+            message.processing_completed_at = now
+        elif status == MessageStatus.PENDING:
+            message.processing_started_at = None
+            message.processing_completed_at = None
+            message.delivered_at = None
+        elif status == MessageStatus.FAILED:
+            message.processing_completed_at = now
+
+        if metadata is not None:
+            existing = _deserialize_metadata(message.workflow_metadata)
+            existing.update(metadata)
+            message.workflow_metadata = _serialize_metadata(existing)
+
+        if scheduled_at is not None:
+            message.scheduled_at = scheduled_at
+
+        if priority is not None:
+            message.priority = priority
+
+        db.commit()
+        return True
+
+
+# Inbox workflow helpers ----------------------------------------------------
+
+
+def get_inbox_message(message_id: int) -> Optional[InboxMessage]:
+    """Fetch a single inbox message by id."""
+
+    with SessionLocal() as db:
+        message = db.query(InboxModel).filter(InboxModel.id == message_id).first()
+        if not message:
+            return None
+        return _model_to_inbox_message(message)
+
+
+def dequeue_next_message(receiver_id: str) -> Optional[InboxMessage]:
+    """Atomically dequeue the highest priority pending message for a terminal."""
+
+    now = datetime.now()
+    with SessionLocal() as db:
+        connection = db.connection()
+        connection.execute(text("BEGIN IMMEDIATE"))
+
+        row = connection.execute(
+            text(
+                """
+                SELECT id, workflow_metadata
+                FROM inbox
+                WHERE receiver_id = :receiver_id
+                  AND status = :pending
+                  AND (scheduled_at IS NULL OR scheduled_at <= :now)
+                ORDER BY priority DESC, created_at ASC, id ASC
+                LIMIT 1
+                """
+            ),
+            {
+                "receiver_id": receiver_id,
+                "pending": MessageStatus.PENDING.value,
+                "now": now,
+            },
+        ).fetchone()
+
+        if not row:
+            db.rollback()
+            return None
+
+        mapping = getattr(row, "_mapping", None)
+        if mapping is not None:
+            message_id = mapping.get("id")
+            metadata_raw = mapping.get("workflow_metadata")
+        else:
+            message_id = row[0]
+            metadata_raw = row[1] if len(row) > 1 else None
+
+        if message_id is None:
+            db.rollback()
+            return None
+        metadata_dict = _deserialize_metadata(metadata_raw)
+        attempts = metadata_dict.get("attempt", 0) + 1
+        metadata_dict["attempt"] = attempts
+        metadata_dict["last_dispatch_at"] = now.isoformat()
+
+        update_result = connection.execute(
+            text(
+                """
+                UPDATE inbox
+                   SET status = :processing,
+                       delivered_at = :now,
+                       processing_started_at = :now,
+                       workflow_metadata = :metadata
+                 WHERE id = :message_id
+                   AND status = :pending
+                """
+            ),
+            {
+                "processing": MessageStatus.PROCESSING.value,
+                "now": now,
+                "metadata": _serialize_metadata(metadata_dict),
+                "message_id": message_id,
+                "pending": MessageStatus.PENDING.value,
+            },
+        )
+
+        if update_result.rowcount == 0:
+            db.rollback()
+            return None
+
+        db.commit()
+
+    return get_inbox_message(message_id)
+
+
+def record_processing_failure(
+    message: InboxMessage,
+    *,
+    error: str,
+    backoff: timedelta = timedelta(seconds=30),
+) -> None:
+    """Update metadata and reschedule or fail a message after delivery failure."""
+
+    metadata = dict(message.metadata)
+    failures = metadata.setdefault("failures", [])
+    failures.append({"at": datetime.now().isoformat(), "error": error})
+
+    attempts = metadata.get("attempt", 1)
+    max_attempts = metadata.get("max_attempts", 3)
+    metadata["attempt"] = attempts
+    metadata["last_error"] = error
+
+    if attempts >= max_attempts:
+        update_message_status(
+            message.id,
+            MessageStatus.FAILED,
+            metadata=metadata,
+        )
+        return
+
+    delay_seconds = metadata.get("backoff_seconds", int(backoff.total_seconds()))
+    delay_seconds = max(delay_seconds, int(backoff.total_seconds()))
+    scheduled_at = datetime.now() + timedelta(seconds=delay_seconds * attempts)
+    metadata["backoff_seconds"] = delay_seconds
+
+    update_message_status(
+        message.id,
+        MessageStatus.PENDING,
+        metadata=metadata,
+        scheduled_at=scheduled_at,
+        priority=max(message.priority - 1, 0),
+    )
 
 
 # Flow database functions
