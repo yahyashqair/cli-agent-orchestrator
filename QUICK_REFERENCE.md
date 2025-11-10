@@ -168,7 +168,7 @@ curl -X POST http://localhost:9889/terminals/dev456/inbox/messages \
 # Check message status
 curl http://localhost:9889/terminals/dev456/inbox/messages
 
-# Should show status=PENDING initially, then DELIVERED when receiver is IDLE
+# Should show status=PENDING initially, then PROCESSING/COMPLETED as the worker runs
 ```
 
 ---

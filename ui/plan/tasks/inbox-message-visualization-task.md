@@ -14,7 +14,7 @@ Implement a comprehensive inbox/messaging visualization system in the CLI Agent 
 ### Current Backend Implementation
 - **API Endpoint:** `POST /terminals/{receiver_id}/inbox/messages` (main.py:307-329)
 - **Database Model:** `InboxModel` with fields: id, sender_id, receiver_id, message, status, created_at (database.py:34-44)
-- **Message Status:** PENDING, DELIVERED, FAILED (inbox.py:9-14)
+- **Message Status:** PENDING, PROCESSING, COMPLETED, FAILED (inbox.py:9-32)
 - **Delivery:** Automatic FIFO delivery when receiver terminal is IDLE (inbox_service.py:46-82)
 - **MCP Tools:** send_message, handoff, assign (server.py:147-306)
 - **Frontend Type:** `InboxMessage` interface exists but is UNUSED (ui/src/types.ts:27-34)
@@ -41,14 +41,14 @@ Create a new component to display inbox messages with the following features:
   - Sender ID (with badge/color)
   - Receiver ID (with badge/color)
   - Message content (formatted/truncated if long)
-  - Status badge (PENDING, DELIVERED, FAILED with appropriate colors)
+  - Status badge (PENDING, PROCESSING, COMPLETED, FAILED with appropriate colors)
   - Timestamp (relative format: "2 minutes ago")
   - Message ID
 - **Sorting options:**
   - By date (newest/oldest first)
   - By status
 - **Filtering:**
-  - By status (PENDING/DELIVERED/FAILED)
+  - By status (PENDING/PROCESSING/COMPLETED/FAILED)
   - By sender or receiver
 - **Empty states:**
   - "No messages yet" when no messages exist
@@ -169,7 +169,7 @@ ui/src/components/
 - Match color scheme and component styling from existing components
 - Status badge colors:
   - PENDING: yellow/amber
-  - DELIVERED: green
+  - COMPLETED: green
   - FAILED: red
 
 ### Data Flow

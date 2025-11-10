@@ -477,7 +477,7 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
         formatted_message = f"{notification_header}\n{message.message}"
         
         terminal_service.send_input(terminal_id, formatted_message)
-        update_message_status(message.id, MessageStatus.DELIVERED)
+        update_message_status(message.id, MessageStatus.COMPLETED)
         logger.info(f"Delivered message {message.id} to terminal {terminal_id}")
         return True
     except Exception as e:

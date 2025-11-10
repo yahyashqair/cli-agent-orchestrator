@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path as FilePath
 from typing import Annotated, Dict, List, Optional
 
@@ -29,6 +30,7 @@ from cli_agent_orchestrator.clients.database import (
     SessionLocal,
     create_inbox_message,
     init_db,
+    update_message_status,
 )
 from cli_agent_orchestrator.constants import (
     INBOX_POLLING_INTERVAL,
@@ -38,6 +40,7 @@ from cli_agent_orchestrator.constants import (
     SERVER_VERSION,
     TERMINAL_LOG_DIR,
 )
+from cli_agent_orchestrator.models.inbox import MessageStatus
 from cli_agent_orchestrator.models.terminal import Terminal, TerminalId
 from cli_agent_orchestrator.providers.manager import provider_manager
 from cli_agent_orchestrator.services import (
@@ -520,12 +523,56 @@ async def open_terminal_in_tmux(terminal_id: TerminalId) -> Dict:
 
 @app.post("/terminals/{receiver_id}/inbox/messages")
 async def create_inbox_message_endpoint(
-    receiver_id: TerminalId, sender_id: str, message: str
+    receiver_id: TerminalId,
+    sender_id: str,
+    message: str,
+    priority: int = 0,
+    scheduled_at: Optional[str] = None,
+    metadata: Optional[str] = None,
+    in_reply_to: Optional[int] = None,
 ) -> Dict:
     """Create inbox message and attempt immediate delivery."""
     try:
-        inbox_msg = create_inbox_message(sender_id, receiver_id, message)
+        scheduled_at_dt = None
+        if scheduled_at:
+            try:
+                scheduled_at_dt = datetime.fromisoformat(scheduled_at)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="scheduled_at must be ISO8601 formatted",
+                ) from exc
+
+        metadata_payload: Optional[Dict] = None
+        if metadata:
+            try:
+                metadata_payload = json.loads(metadata)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="metadata must be valid JSON",
+                ) from exc
+
+        inbox_msg = create_inbox_message(
+            sender_id,
+            receiver_id,
+            message,
+            priority=priority,
+            scheduled_at=scheduled_at_dt,
+            metadata=metadata_payload,
+        )
         inbox_service.check_and_send_pending_messages(receiver_id)
+
+        if in_reply_to is not None:
+            completion_metadata = {
+                "completed_by": sender_id,
+                "completion_message_id": inbox_msg.id,
+            }
+            update_message_status(
+                in_reply_to,
+                MessageStatus.COMPLETED,
+                metadata=completion_metadata,
+            )
 
         return {
             "success": True,
@@ -533,6 +580,10 @@ async def create_inbox_message_endpoint(
             "sender_id": inbox_msg.sender_id,
             "receiver_id": inbox_msg.receiver_id,
             "created_at": inbox_msg.created_at.isoformat(),
+            "priority": inbox_msg.priority,
+            "scheduled_at": inbox_msg.scheduled_at.isoformat()
+            if inbox_msg.scheduled_at
+            else None,
         }
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -554,7 +605,7 @@ async def get_inbox_messages(
 
     Args:
         terminal_id: Terminal ID to fetch messages for
-        message_status: Filter by message status (pending/delivered/failed)
+        message_status: Filter by message status (pending/processing/completed/failed)
         direction: Filter by direction (sent/received/all)
 
     Returns:
@@ -562,7 +613,14 @@ async def get_inbox_messages(
     """
     try:
         # Validate parameters
-        if message_status and message_status not in ["pending", "delivered", "failed"]:
+        valid_statuses = {
+            MessageStatus.PENDING.value,
+            MessageStatus.PROCESSING.value,
+            MessageStatus.COMPLETED.value,
+            MessageStatus.FAILED.value,
+        }
+
+        if message_status and message_status not in valid_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status parameter"
             )
@@ -599,18 +657,39 @@ async def get_inbox_messages(
             db_messages = query.all()
 
             # Convert to response format
-            messages = [
-                {
-                    "id": msg.id,
-                    "sender_id": msg.sender_id,
-                    "receiver_id": msg.receiver_id,
-                    "message": msg.message,
-                    "status": msg.status,
-                    "created_at": msg.created_at.isoformat(),
-                    "delivered_at": msg.delivered_at.isoformat() if msg.delivered_at else None,
-                }
-                for msg in db_messages
-            ]
+            messages = []
+            for msg in db_messages:
+                metadata_payload = {}
+                if msg.workflow_metadata:
+                    try:
+                        metadata_payload = json.loads(msg.workflow_metadata)
+                    except json.JSONDecodeError:
+                        metadata_payload = {}
+
+                messages.append(
+                    {
+                        "id": msg.id,
+                        "sender_id": msg.sender_id,
+                        "receiver_id": msg.receiver_id,
+                        "message": msg.message,
+                        "status": msg.status,
+                        "priority": msg.priority,
+                        "scheduled_at": msg.scheduled_at.isoformat()
+                        if msg.scheduled_at
+                        else None,
+                        "created_at": msg.created_at.isoformat(),
+                        "delivered_at": msg.delivered_at.isoformat()
+                        if msg.delivered_at
+                        else None,
+                        "processing_started_at": msg.processing_started_at.isoformat()
+                        if msg.processing_started_at
+                        else None,
+                        "processing_completed_at": msg.processing_completed_at.isoformat()
+                        if msg.processing_completed_at
+                        else None,
+                        "metadata": metadata_payload,
+                    }
+                )
 
             return {"messages": messages, "count": len(messages)}
 

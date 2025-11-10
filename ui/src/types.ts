@@ -44,7 +44,7 @@ export interface Session {
   terminals: Terminal[];
 }
 
-export type MessageStatus = 'pending' | 'delivered' | 'failed';
+export type MessageStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export interface InboxMessage {
   id: string;
@@ -52,8 +52,13 @@ export interface InboxMessage {
   receiver_id: string;
   message: string;
   status: MessageStatus;
+  priority: number;
+  scheduled_at?: string | null;
   created_at: string;
   delivered_at?: string;
+  processing_started_at?: string | null;
+  processing_completed_at?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TerminalOutput {

@@ -2,7 +2,7 @@
 export type ProviderType = "q_cli" | "claude_code" | "codex_cli" | "copilot_cli" | "opencode";
 export type TerminalStatus = "idle" | "processing" | "completed" | "waiting_user_answer" | "error";
 export type SessionStatus = "active" | "detached" | "terminated";
-export type MessageStatus = "pending" | "delivered" | "failed";
+export type MessageStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface Terminal {
   id: string;
@@ -41,8 +41,13 @@ export interface InboxMessage {
   receiver_id: string;
   message: string;
   status: MessageStatus;
+  priority: number;
+  scheduled_at?: string | null;
   created_at: string;
   delivered_at?: string;
+  processing_started_at?: string | null;
+  processing_completed_at?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AgentProviderConfig {
@@ -74,6 +79,7 @@ export interface SendInputRequest {
 export interface SendMessageRequest {
   message: string;
   receiver_id: string;
+  in_reply_to_message_id?: number;
 }
 
 export interface AddFlowRequest {
