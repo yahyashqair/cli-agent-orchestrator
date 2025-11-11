@@ -1,3 +1,0 @@
-→ 
-
-OpenCode is ready and waiting for input. The arrow prompt indicates the system is idle and ready to accept commands.
