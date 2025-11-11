@@ -1,8 +1,0 @@
-❯ 1. Continue with current approach
-❯ 2. Try an alternative method
-❯ 3. Ask for clarification
-❯ 4. Cancel operation
-
-→ 
-
-OpenCode is waiting for user selection from multiple options. The arrow cursor with numbered choices indicates it needs user input to proceed.
