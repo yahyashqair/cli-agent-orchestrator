@@ -1,7 +1,0 @@
-⚡ Working on your request... (esc to interrupt)
-Analyzing the codebase structure
-Processing your input
-
-→ 
-
-OpenCode is currently processing a request. The lightning bolt indicator and "Working" message show that it's actively thinking or processing, with the option to interrupt using escape key.

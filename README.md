@@ -1,419 +1,91 @@
-# CLI Agent Orchestrator
+# Java Agent Orchestrator
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/awslabs/cli-agent-orchestrator)
+A complete rewrite of the CLI Agent Orchestrator using Java 21, Spring Boot 3, Apache Pekko actors, and a modern React dashboard.
 
-CLI Agent Orchestrator(CAO, pronounced as "kay-oh"), is a lightweight orchestration system for managing multiple AI agent sessions in tmux terminals. Enables Multi-agent collaboration via MCP server.
+## Overview
 
-## Hierarchical Multi-Agent System
+- **Backend** (`/java/`): Reactive Spring Boot service exposing REST + WebSocket APIs, orchestrating Apache Pekko actors, and persisting terminal state in PostgreSQL via R2DBC (with in-memory H2 defaults).
+- **Frontend** (`/javaUI/`): React 18 + TypeScript + Tailwind application that renders real-time terminal activity, topology diagrams (Mermaid), and progress tracking over a WebSocket feed.
+- **CLI** (`jao` / `cao`): Picocli-powered command line compatible with the original verbs (`server`, `launch`, `flow`, `shutdown`).
 
-CLI Agent Orchestrator (CAO) implements a hierarchical multi-agent system that enables complex problem-solving through specialized division of CLI Developer Agents.
-
-![CAO Architecture](./docs/assets/cao_architecture.png)
-
-### Key Features
-
-* **Hierarchical orchestration** – CAO's supervisor agent coordinates workflow management and task delegation to specialized worker agents. The supervisor maintains overall project context while agents focus on their domains of expertise.
-* **Session-based isolation** – Each agent operates in isolated tmux sessions, ensuring proper context separation while enabling seamless communication through Model Context Protocol (MCP) servers. This provides both coordination and parallel processing capabilities.
-* **Intelligent task delegation** – CAO automatically routes tasks to appropriate specialists based on project requirements, expertise matching, and workflow dependencies. The system adapts between individual agent work and coordinated team efforts through three orchestration patterns:
-    - **Handoff** - Synchronous task transfer with wait-for-completion
-    - **Assign** - Asynchronous task spawning for parallel execution  
-    - **Send Message** - Direct communication with existing agents
-* **Flexible workflow patterns** – CAO supports both sequential coordination for dependent tasks and parallel processing for independent work streams. This allows optimization of both development speed and quality assurance processes.
-* **Flow - Scheduled runs** – Automated execution of workflows at specified intervals using cron-like scheduling, enabling routine tasks and monitoring workflows to run unattended.
-* **Context preservation** – The supervisor agent provides only necessary context to each worker agent, avoiding context pollution while maintaining workflow coherence.
-* **Direct worker interaction and steering** – Users can interact directly with worker agents to provide additional steering, distinguishing from sub-agents features by allowing real-time guidance and course correction.
-* **Advanced CLI integration** – CAO agents have full access to advanced features of the developer CLI, such as the [sub-agents](https://docs.claude.com/en/docs/claude-code/sub-agents) feature of Claude Code, [Custom Agent](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-custom-agents.html) of Amazon Q Developer for CLI, the planning/Reason+ modes available in [Codex CLI](https://developers.openai.com/codex/cli), and the Plan/Build modes of [OpenCode](https://opencode.ai/docs).
-
-For detailed project structure and architecture, see [CODEBASE.md](CODEBASE.md).
-
-## Installation
-
-1. Install tmux (version 3.3 or higher required)
-
-```bash
-bash <(curl -s https://raw.githubusercontent.com/awslabs/cli-agent-orchestrator/refs/heads/main/tmux-install.sh)
+```mermaid
+graph TD
+  Orchestrator((SessionOrchestrator))
+  Terminal1([TerminalActor developer])
+  Terminal2([TerminalActor reviewer])
+  Orchestrator -- assign/send_message --> Terminal1
+  Terminal1 -- send_message --> Orchestrator
+  Orchestrator -- handoff_disabled --> Terminal2
 ```
 
-2. Install uv
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+```mermaid
+sequenceDiagram
+  participant Supervisor
+  participant Orchestrator
+  participant Developer
+  Supervisor->>Orchestrator: assign(task)
+  Orchestrator->>Developer: assign(task)
+  Developer-->>Orchestrator: send_message(COMPLETED)
+  Orchestrator-->>Supervisor: send_message(COMPLETED)
 ```
 
-3. Install CLI Agent Orchestrator:
-
-```bash
-uv tool install git+https://github.com/awslabs/cli-agent-orchestrator.git@main --upgrade
-```
-
-## Quick Start
-
-### Installing Agents
-
-CAO supports installing agents from multiple sources:
-
-**1. Install built-in agents (bundled with CAO):**
-
-```bash
-cao install code_supervisor
-cao install developer
-cao install reviewer
-```
-
-**2. Install from a local file:**
-
-```bash
-cao install ./my-custom-agent.md
-cao install /absolute/path/to/agent.md
-```
-
-**3. Install from a URL:**
-
-```bash
-cao install https://example.com/agents/custom-agent.md
-```
-
-When installing from a file or URL, the agent is saved to your local agent store (`~/.aws/cli-agent-orchestrator/agent-store/`) and can be referenced by name in future installations.
-
-For details on creating custom agent profiles, see [docs/agent-profile.md](docs/agent-profile.md).
-
-### Launching Agents
-
-Start the cao server:
-
-```bash
-cao-server
-```
-
-In another terminal, launch a terminal with an agent profile:
-
-```bash
-cao launch --agents code_supervisor
-```
-
-To launch the same profile backed by Codex CLI:
-
-```bash
-cao launch --agents code_supervisor --provider codex_cli
-```
-
-To use GitHub Copilot CLI:
-
-```bash
-cao launch --agents code_supervisor --provider copilot_cli
-```
-
-To launch with OpenCode:
-
-```bash
-cao launch --agents code_supervisor --provider opencode
-```
-
-Shutdown sessions:
-
-```bash
-# Shutdown all cao sessions
-cao shutdown --all
-
-# Shutdown specific session
-cao shutdown --session cao-my-session
-```
-
-### Web UI (Optional)
-
-CAO includes a modern web interface for monitoring and controlling agents with real-time updates.
-
-**Features:**
-- Real-time dashboard with agent status overview
-- Live terminal output viewer with auto-scroll
-- Session and terminal management
-- Launch new agents from the UI
-- Send input to terminals directly from the browser
-
-**Setup:**
-
-1. Install Node.js dependencies:
-```bash
-cd ui
-npm install
-```
-
-2. Start the backend server (if not already running):
-```bash
-cao-server
-```
-
-3. Start the UI development server:
-```bash
-cd ui
-npm run dev
-```
-
-The UI will be available at `http://localhost:3000`
-
-**Build for production:**
-```bash
-cd ui
-npm run build
-```
-
-For more details, see [ui/README.md](ui/README.md).
-
-### Session Archiving
-
-CAO supports archiving completed sessions to keep your active sessions list clean while preserving historical data. When you archive a session:
-
-- All terminal metadata is snapshotted and preserved
-- The tmux session is terminated
-- The session is removed from the active sessions list
-- The archived session appears in the "Archived Sessions" section in the UI
-
-**How to archive:**
-- Via UI: Click the Archive icon (📦) next to any session
-- Via API: `POST /sessions/{session_name}/archive`
-
-Archived sessions preserve:
-- Terminal IDs, providers, and agent profiles
-- Terminal statuses at the time of archiving
-- Creation and last active timestamps
-- Working directories and permissions
-
-For complete details, see [docs/session-archiving.md](docs/session-archiving.md).
-
-### Agent Provider Configuration
-
-CAO now lets you pin a specific CLI provider per agent profile. The override order is:
-
-```
-saved override > agent profile metadata > inherited provider/session default > q_cli
-```
-
-Use the **Agent Providers** button in the UI header to open the settings panel and choose a default provider for each profile (Code Supervisor, Developer, Reviewer). The Control Panel will auto-select the stored override when you pick an agent and fall back to the profile metadata/`q_cli` whenever no override exists, so stale providers never linger. You can still switch providers for a one-off launch.
-
-Prefer an API? The FastAPI server exposes:
-
-| Endpoint | Description |
-| --- | --- |
-| `GET /agent-provider-configs` | List saved overrides |
-| `PUT /agent-provider-configs/{agent_profile}` | Upsert `{ "provider": "codex_cli" }` |
-| `DELETE /agent-provider-configs/{agent_profile}` | Clear an override and fall back to defaults |
-
-These values are also honored by the CLI (`cao launch` resolves the same precedence chain) and by the MCP server when supervisors spawn workers. Terminals now expose their `working_directory`, allowing worker agents to inherit the same path so Codex/Copilot/OpenCode sessions launch exactly where you expect.
-
-### Working with tmux Sessions
-
-All agent sessions run in tmux. Useful commands:
-
-```bash
-# List all sessions
-tmux list-sessions
-
-# Attach to a session
-tmux attach -t <session-name>
-
-# Detach from session (inside tmux)
-Ctrl+b, then d
-
-# Switch between windows (inside tmux)
-Ctrl+b, then n          # Next window
-Ctrl+b, then p          # Previous window
-Ctrl+b, then <number>   # Go to window number (0-9)
-Ctrl+b, then w          # List all windows (interactive selector)
-
-# Delete a session
-cao shutdown --session <session-name>
-```
-
-**List all windows (Ctrl+b, w):**
-
-![Tmux Window Selector](./docs/assets/tmux_all_windows.png)
-
-## MCP Server Tools and Orchestration Modes
-
-CAO provides a local HTTP server that processes orchestration requests. CLI agents can interact with this server through MCP tools to coordinate multi-agent workflows.
-
-### How It Works
-
-Each agent terminal is assigned a unique `CAO_TERMINAL_ID` environment variable. The server uses this ID to:
-
-- Route messages between agents
-- Track terminal status (IDLE, BUSY, COMPLETED, ERROR)
-- Manage terminal-to-terminal communication via inbox
-- Coordinate orchestration operations
-
-When an agent calls an MCP tool, the server identifies the caller by their `CAO_TERMINAL_ID` and orchestrates accordingly.
-
-### Orchestration Modes
-
-CAO supports three orchestration patterns:
-
-**1. Handoff** - Transfer control to another agent and wait for completion
-
-- Creates a new terminal with the specified agent profile
-- Sends the task message and waits for the agent to finish
-- Returns the agent's output to the caller
-- Automatically exits the agent after completion
-- Use when you need **synchronous** task execution with results
-
-Example: Sequential code review workflow
-
-![Handoff Workflow](./docs/assets/handoff-workflow.png)
-
-**2. Assign** - Spawn an agent to work independently (async)
-
-- Creates a new terminal with the specified agent profile
-- Sends the task message with callback instructions
-- Returns immediately with the terminal ID
-- Agent continues working in the background
-- Assigned agent sends results back to supervisor via `send_message` when complete
-- Messages are queued for delivery if the supervisor is busy (common in parallel workflows)
-- Use for **asynchronous** task execution or fire-and-forget operations
-
-Example: A supervisor assigns parallel data analysis tasks to multiple analysts while using handoff to sequentially generate a report template, then combines all results.
-
-See [examples/assign](examples/assign) for the complete working example.
-
-![Parallel Data Analysis](./docs/assets/parallel-data-analysis.png)
-
-**3. Send Message** - Communicate with an existing agent
-
-- Sends a message to a specific terminal's inbox
-- Messages are queued and delivered when the terminal is idle
-- Enables ongoing collaboration between agents
-- Common for **swarm** operations where multiple agents coordinate dynamically
-- Use for iterative feedback or multi-turn conversations
-
-Example: Multi-role feature development
-
-![Multi-role Feature Development](./docs/assets/multi-role-feature-development.png)
-
-### Custom Orchestration
-
-The `cao-server` runs on `http://localhost:9889` by default and exposes REST APIs for session management, terminal control, and messaging. The CLI commands (`cao launch`, `cao shutdown`) and MCP server tools (`handoff`, `assign`, `send_message`) are just examples of how these APIs can be packaged together.
-
-You can combine the three orchestration modes above into custom workflows, or create entirely new orchestration patterns using the underlying APIs to fit your specific needs.
-
-For complete API documentation, see [docs/api.md](docs/api.md).
-
-## Flows - Scheduled Agent Sessions
-
-Flows allow you to schedule agent sessions to run automatically based on cron expressions.
+## Getting Started
 
 ### Prerequisites
 
-Install the agent profile you want to use:
+- Java 21+
+- Maven 3.9+
+- Node.js 20+ (for the UI)
+- Docker (for Testcontainers-based integration tests)
+
+### Backend
 
 ```bash
-cao install developer
+# Run tests (unit + Testcontainers integration)
+mvn -f java/pom.xml verify
+
+# Run the orchestrator server
+./jao server --port 8080
 ```
 
-### Quick Start
-
-The example flow asks a simple world trivia question every morning at 7:30 AM.
+### CLI
 
 ```bash
-# 1. Start the cao server
-cao-server
+# Launch a terminal actor via REST
+./jao launch --alias developer --role engineer --handles owner(task-42)
 
-# 2. In another terminal, add a flow
-cao flow add examples/flow/morning-trivia.md
+# List and add flows
+./jao flow list
+./jao flow add --name onboarding --spec "assign developer -> send_message"
 
-# 3. List flows to see schedule and status
-cao flow list
-
-# 4. Manually run a flow (optional - for testing)
-cao flow run morning-trivia
-
-# 5. View flow execution (after it runs)
-tmux list-sessions
-tmux attach -t <session-name>
-
-# 6. Cleanup session when done
-cao shutdown --session <session-name>
+# Gracefully shutdown
+./jao shutdown
 ```
 
-Flow frontmatter accepts an optional `provider` key (default `q_cli`). Set `provider: codex_cli` to schedule Codex-backed sessions, `provider: copilot_cli` for GitHub Copilot, or `provider: opencode` for OpenCode-backed sessions when needed.
+The legacy `cao` command remains as a compatibility alias.
 
-**IMPORTANT:** The `cao-server` must be running for flows to execute on schedule.
-
-### Example 1: Simple Scheduled Task
-
-A flow that runs at regular intervals with a static prompt (no script needed):
-
-**File: `daily-standup.md`**
-
-```yaml
----
-name: daily-standup
-schedule: "0 9 * * 1-5"  # 9am weekdays
-agent_profile: developer
----
-
-Review yesterday's commits and create a standup summary.
-```
-
-### Example 2: Conditional Execution with Health Check
-
-A flow that monitors a service and only executes when there's an issue:
-
-**File: `monitor-service.md`**
-
-```yaml
----
-name: monitor-service
-schedule: "*/5 * * * *"  # Every 5 minutes
-agent_profile: developer
-script: ./health-check.sh
----
-
-The service at [[url]] is down (status: [[status_code]]).
-Please investigate and triage the issue:
-1. Check recent deployments
-2. Review error logs
-3. Identify root cause
-4. Suggest remediation steps
-```
-
-**Script: `health-check.sh`**
+### Frontend
 
 ```bash
-#!/bin/bash
-URL="https://api.example.com/health"
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-
-if [ "$STATUS" != "200" ]; then
-  # Service is down - execute flow
-  echo "{\"execute\": true, \"output\": {\"url\": \"$URL\", \"status_code\": \"$STATUS\"}}"
-else
-  # Service is healthy - skip execution
-  echo "{\"execute\": false, \"output\": {}}"
-fi
+cd javaUI
+npm install
+npm run dev
 ```
 
-### Flow Commands
+The dashboard connects to the backend at `http://localhost:8080` and renders real-time events pushed over `/ws/terminal-events`.
+
+## Testing
+
+Integration tests use Testcontainers to start PostgreSQL and validate actor registration, message routing, and persistence. Run them with:
 
 ```bash
-# Add a flow
-cao flow add daily-standup.md
-
-# List all flows (shows schedule, next run time, enabled status)
-cao flow list
-
-# Enable/disable a flow
-cao flow enable daily-standup
-cao flow disable daily-standup
-
-# Manually run a flow (ignores schedule)
-cao flow run daily-standup
-
-# Remove a flow
-cao flow remove daily-standup
+mvn -f java/pom.xml verify
 ```
 
-## Security
+## Structured Logging
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+Console logs are emitted as JSON. Configure `SPRING_R2DBC_URL` to point to a PostgreSQL instance for persistent storage. By default, the application uses in-memory H2 with Postgres compatibility.
 
 ## License
 
-This project is licensed under the Apache-2.0 License.
+Apache 2.0

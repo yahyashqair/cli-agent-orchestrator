@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+JAR="$(dirname "$0")/java/target/cli-agent-orchestrator-1.0.0.jar"
+if [ ! -f "$JAR" ]; then
+  echo "Building orchestrator jar..." >&2
+  mvn -q -f "$(dirname "$0")/java/pom.xml" -DskipTests package
+fi
+exec java -cp "$JAR" com.yahyashqair.jao.cli.JaoCli "$@"

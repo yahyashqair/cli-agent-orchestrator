@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: java-agent-orchestrator
+  r2dbc:
+    url: ${SPRING_R2DBC_URL:r2dbc:h2:mem:///jao;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${SPRING_R2DBC_USERNAME:sa}
+    password: ${SPRING_R2DBC_PASSWORD:}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+server:
+  port: ${SERVER_PORT:8080}
+logging:
+  pattern:
+    console: '{"timestamp":"%d{ISO8601}","level":"%p","logger":"%logger{36}","thread":"%thread","message":"%replace(%msg){"\\"":"''"}","mdc":%mdc}'
+management:
+  endpoint:
+    shutdown:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,shutdown

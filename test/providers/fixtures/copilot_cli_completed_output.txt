@@ -1,7 +1,0 @@
-You> write a bash script to list files
-Copilot is thinking...
-Copilot> You can use the following script:
-
-ls -lah
-
-You> 

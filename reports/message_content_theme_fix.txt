@@ -1,9 +1,0 @@
-Update Summary
-- Light-theme readability issue resolved by swapping the hard-coded dark `.message-content` background for a theme-aware blend using `var(--glass-panel)` and `var(--bg-secondary)` so the field now follows whichever palette is active.
-- Border color for `.message-content` now derives from `var(--glass-border)` to maintain sufficient contrast without forcing a dark outline in light mode.
-
-Code References
-- `/home/yahyashqair/anonDev/cli-agent-orchestrator/ui/src/components/MessageCard.css:99-109`
-
-Next Steps
-1. Rebuild or run the UI (`npm run dev` in `ui/`) to visually confirm the message cards align with design expectations across dark/light themes.
