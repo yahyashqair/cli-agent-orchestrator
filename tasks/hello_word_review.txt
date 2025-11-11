@@ -1,7 +1,0 @@
-Code Review Task: Verify the implementation at /home/yahyashqair/anonDev/cli-agent-orchestrator/tmp/hello_word.py created for printing "hello word".
-
-Context:
-- The script should have a main guard and print the exact text: hello word
-- No other files were modified
-
-Please review the script for correctness, style, and any potential issues. Confirm whether the code meets the requirement or provide actionable feedback.

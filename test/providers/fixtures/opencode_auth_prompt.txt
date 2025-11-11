@@ -1,3 +1,0 @@
-┌  Add credential│◇  Select provider│  opencode│●  Create an api key at https://opencode.ai/auth│◆  Enter your API key│  _
-
-OpenCode is showing the authentication prompt because no API key has been configured.

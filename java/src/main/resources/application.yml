@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: jao
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/jao
+    username: jao
+    password: jao
+    initialization-mode: always
+  main:
+    web-application-type: reactive
+  codec:
+    max-in-memory-size: 5MB
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+server:
+  port: 8080
+
+logging:
+  pattern:
+    console: '{"timestamp":"%d{ISO8601}","level":"%p","logger":"%c","message":"%m","context":"%X","thread":"%t"}%n'
+
+app:
+  websocket-path: /ws/events
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,shutdown
+  endpoint:
+    shutdown:
+      enabled: true
